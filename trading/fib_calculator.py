@@ -5,6 +5,7 @@ AO:  标准 Bill Williams 实现
 """
 
 from dataclasses import dataclass, field
+from .config import DEFAULT_CONFIG
 
 
 # ─── 内部类型 ───────────────────────────────────────────────────────────────
@@ -289,13 +290,19 @@ def _swing_from_klines(klines, deviation: float = 5.0, depth: int = 10):
 
 def ao_sell_signal(ao_values: list,
                     entry_price: float = None,
-                    current_price: float = None) -> dict:
+                    current_price: float = None,
+                    config = None) -> dict:
     """
     AO 卖出信号判断
-    - AO >= 50k：绿转红直接卖出
-    - AO < 50k：需绿转红 + 收益率 > 50% 才卖出
+    - AO >= 阈值：绿转红直接卖出
+    - AO < 阈值：需绿转红 + 收益率 > 阈值 才卖出
     返回 {'action': 'sell', 'ao_value': float, 'threshold': float, 'reason': str} 或 {}
+    
+    Bug Fix: 当 entry_price 为 None 时，如果 AO < 阈值，仍然记录信号但不执行卖出
     """
+    if config is None:
+        config = DEFAULT_CONFIG.ao
+    
     valid = [(i, v) for i, v in enumerate(ao_values) if v is not None]
     if len(valid) < 3:
         return {}
@@ -306,27 +313,29 @@ def ao_sell_signal(ao_values: list,
     color_n1 = "green" if ao_n1 >= ao_n2 else "red"
     color_0  = "green" if ao_0  >= ao_n1 else "red"
 
-    AO_THRESHOLD_NORMAL = 0.00003500  # 35k（降低阈值，更容易触发）
-    RETURN_THRESHOLD    = 0.50         # AO<35k时，需收益率>50%才卖出
-
     # 绿转红：n1绿且n0红，且当前AO在0轴上方
     if not (color_n1 == "green" and color_0 == "red" and ao_0 > 0):
         return {}
 
-    # AO >= 35k → 直接卖出
-    if ao_0 >= AO_THRESHOLD_NORMAL:
+    # AO >= 阈值 → 直接卖出
+    if ao_0 >= config.threshold_normal:
         return {"action": "sell", "ao_value": ao_0,
-                "threshold": AO_THRESHOLD_NORMAL, "reason": "ao≥35k绿转红"}
+                "threshold": config.threshold_normal, 
+                "reason": f"ao≥{config.threshold_normal*1e6:.0f}k绿转红"}
 
-    # AO < 35k → 需收益率 > 50%
+    # AO < 阈值 → 需收益率 > 阈值才卖出
     if entry_price and entry_price > 0 and current_price:
         ret = (current_price - entry_price) / entry_price
-        if ret >= RETURN_THRESHOLD:
+        if ret >= config.profit_threshold:
             return {"action": "sell", "ao_value": ao_0,
-                    "threshold": AO_THRESHOLD_NORMAL,
-                    "reason": f"ao<35k但收益率>{RETURN_THRESHOLD*100:.0f}%({ret*100:.1f}%)"}
-
-    return {}
+                    "threshold": config.threshold_normal,
+                    "reason": f"ao<{config.threshold_normal*1e6:.0f}k但收益率>{config.profit_threshold*100:.0f}%({ret*100:.1f}%)"}
+    
+    # Bug Fix: entry_price 为 None 时，记录警告但不卖出
+    # 这样可以在日志中看到潜在的卖出信号
+    return {"action": "watch", "ao_value": ao_0,
+            "threshold": config.threshold_normal,
+            "reason": f"ao<{config.threshold_normal*1e6:.0f}k绿转红但无持仓价格信息"}
 
 
 def fib_sell_signal(swing_high: float, swing_low: float, current_price: float,
@@ -381,7 +390,8 @@ def fib_sell_signal(swing_high: float, swing_low: float, current_price: float,
     return {}
 
 
-def check_penetration_with_tolerance(latest_low: float, latest_close: float, level_price: float) -> bool:
+def check_penetration_with_tolerance(latest_low: float, latest_close: float, level_price: float, 
+                                     config = None) -> bool:
     """
     检查是否穿透档位（带动态容差）
     
@@ -408,14 +418,17 @@ def check_penetration_with_tolerance(latest_low: float, latest_close: float, lev
     if latest_low > level_price:
         return False
     
+    if config is None:
+        config = DEFAULT_CONFIG.fibonacci
+    
     # 计算插针深度（穿透幅度）
     penetration_depth = (level_price - latest_low) / level_price if level_price > 0 else 0
     
     # 动态容差：根据插针深度调整
-    if penetration_depth < 0.03:  # 浅插针（< 3%）
-        tolerance = 0.02  # 允许收盘价回升 2%
-    else:  # 深插针（>= 3%）
-        tolerance = 0.05  # 允许收盘价回升 5%
+    if penetration_depth < config.shallow_penetration_threshold:
+        tolerance = config.shallow_tolerance
+    else:
+        tolerance = config.deep_tolerance
     
     # 条件2: 收盘价在容差范围内
     max_close = level_price * (1 + tolerance)
