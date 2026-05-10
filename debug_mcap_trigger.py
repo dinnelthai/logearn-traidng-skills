@@ -43,8 +43,9 @@ def debug_mcap_trigger(ca, min_swing_high_mcap=180.0):
         if 'market_cap' in k and k['market_cap'] > 0:
             mcap_k = k['market_cap']
         else:
-            # 如果没有market_cap字段，用收盘价 * supply 计算（与 closeU 一致）
-            mcap_k = (k['close'] * supply) / 1000
+            # 如果没有market_cap字段，用SOL价格 * supply 计算（与 closeU 一致）
+            closeU = k.get('closeU', k['close'])
+            mcap_k = (closeU * supply) / 1000
         
         # 显示前10根和触发点附近的K线
         if i < 10 or (trigger_index is None and mcap_k >= min_swing_high_mcap - 50):
@@ -69,7 +70,8 @@ def debug_mcap_trigger(ca, min_swing_high_mcap=180.0):
                 k2 = klines[j]
                 mcap_k2 = k2.get('market_cap', 0)
                 if mcap_k2 == 0:
-                    mcap_k2 = (k2['close'] * supply) / 1000
+                    closeU = k2.get('closeU', k2['close'])
+                    mcap_k2 = (closeU * supply) / 1000
                 time_str2 = datetime.fromtimestamp(k2['time'], tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
                 print(f"K线 {j:4d}: {time_str2} UTC | 市值: {mcap_k2:8.2f}k | 价格: {k2['close']:.8f}")
             break
@@ -82,7 +84,8 @@ def debug_mcap_trigger(ca, min_swing_high_mcap=180.0):
         for i, k in enumerate(klines):
             mcap_k = k.get('market_cap', 0)
             if mcap_k == 0:
-                mcap_k = (k['close'] * supply) / 1000
+                closeU = k.get('closeU', k['close'])
+                mcap_k = (closeU * supply) / 1000
             if mcap_k > max_mcap:
                 max_mcap = mcap_k
                 max_index = i
@@ -118,7 +121,8 @@ def debug_mcap_trigger(ca, min_swing_high_mcap=180.0):
         k = klines[closest_index]
         mcap_k = k.get('market_cap', 0)
         if mcap_k == 0:
-            mcap_k = (k['close'] * supply) / 1000
+            closeU = k.get('closeU', k['close'])
+            mcap_k = (closeU * supply) / 1000
         time_str = datetime.fromtimestamp(k['time'], tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
         
         print(f"最接近的K线:")
