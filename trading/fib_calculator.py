@@ -476,45 +476,21 @@ def fib_signal(klines: list[Kline], entry_price: float = None,
     latest_low   = klines[-1].low
     
     # 市值门槛检查（仅在空仓且启用门槛时检查）
-    # 逻辑：
-    # 1. 找到第一次市值 >= 180k 的K线时间点
-    # 2. 只有在这个时间点之后出现的波峰才计算 Fib
-    # 3. 时间点之前的所有波峰都跳过
+    # 注意：swing_high_mcap_triggered 已在 check_single_trade 中初始化
+    # 这里只需要检查是否已触发即可
     if (min_swing_high_mcap is not None and supply is not None and supply > 0 
         and not tiers_bought):  # 仅空仓时检查
         
-        # 如果还没有触发过，检查当前K线窗口是否已经达到过门槛
+        # 如果还没有触发过，跳过本次波峰
         if not swing_high_mcap_triggered:
-            # 找到第一次市值 >= 门槛的K线索引
-            first_trigger_index = None
-            for i, k in enumerate(klines):
-                mcap_k = 0
-                if hasattr(k, 'market_cap') and k.market_cap > 0:
-                    mcap_k = k.market_cap
-                else:
-                    # 如果没有market_cap字段，用价格 * supply 计算
-                    mcap_k = (k.high * supply) / 1000
-                
-                if mcap_k >= min_swing_high_mcap:
-                    first_trigger_index = i
-                    break
-            
-            # 如果找到了触发点
-            if first_trigger_index is not None:
-                # 检查当前波峰是否在触发点之后
-                # 波峰是从前50根K线中找的，所以要检查波峰位置
-                # 简化：如果找到了触发点，就允许当前波峰
-                swing_high_mcap_triggered = True
-            else:
-                # 没有找到触发点，跳过本次波峰
-                return {
-                    "action": "swing_high_detected",
-                    "swing_high": swing_high,
-                    "swing_high_price": swing_high,
-                    "mcap_threshold_not_met": True,
-                    "swing_high_mcap_triggered": False
-                }
-        # 如果已经触发过，直接继续（不再检查）
+            return {
+                "action": "swing_high_detected",
+                "swing_high": swing_high,
+                "swing_high_price": swing_high,
+                "mcap_threshold_not_met": True,
+                "swing_high_mcap_triggered": False
+            }
+        # 如果已经触发过，继续执行（允许买入）
 
     # AO 卖出信号优先（持仓中才判断，空仓跳过）
     if not skip_ao:

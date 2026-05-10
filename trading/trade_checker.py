@@ -131,6 +131,22 @@ def check_single_trade(klines: List[Kline],
                 "filter_reason": f"市值未达到{min_market_cap}k（共{original_count}根K线）"
             }
     
+    # 检查整个K线历史是否达到过波峰市值门槛
+    # 这个检查只做一次，在整个交易开始前
+    swing_high_mcap_triggered = False
+    if min_swing_high_mcap is not None and supply is not None and supply > 0:
+        for k in klines:
+            mcap_k = 0
+            if hasattr(k, 'market_cap') and k.market_cap > 0:
+                mcap_k = k.market_cap
+            else:
+                # 如果没有market_cap字段，用价格 * supply 计算
+                mcap_k = (k.high * supply) / 1000
+            
+            if mcap_k >= min_swing_high_mcap:
+                swing_high_mcap_triggered = True
+                break
+    
     # 初始化 PositionManager（100% 复用）
     position_manager = PositionManager(
         max_position_ratio=config.position.max_position_ratio,
@@ -146,7 +162,7 @@ def check_single_trade(klines: List[Kline],
     entry_swing_high = None
     entry_stop_price = None
     fib_sold_tiers = []
-    swing_high_mcap_triggered = False  # 波峰市值门槛触发状态
+    # swing_high_mcap_triggered 已在上面初始化
     
     # 记录变量
     buy_records = []
