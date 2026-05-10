@@ -34,12 +34,20 @@ def run_backtest(ca):
 
     # 回测：min_swing_high_mcap=180k USD（波峰市值门槛）
     min_swing_high_mcap = 180.0  # 180k
+    supply = info.get('total_supply') if info else None
+    
+    print(f"\n{'='*80}")
+    print(f"回测参数:")
+    print(f"  supply: {supply}")
+    print(f"  min_swing_high_mcap: {min_swing_high_mcap}k")
+    print(f"{'='*80}\n")
+    
     result = analyze_token_trades(
         ca=ca,
         raw_klines=klines,
         symbol=symbol,
         total_capital=2.0,
-        supply=info.get('total_supply') if info else None,
+        supply=supply,
         min_swing_high_mcap=min_swing_high_mcap,
         max_trades=5
     )
