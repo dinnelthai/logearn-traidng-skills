@@ -122,7 +122,10 @@ def example_conditional_trade():
             print(f"  ❌ 跳过 - 已有完整交易")
             print(f"     收益率: {profit_rate*100:+.2f}%")
             print(f"     买入: {len(result['buy_points'])} 个档位")
-            print(f"     卖出: {result['sell_point']['reason']}")
+            # 获取第一个卖出点（可能有多次卖出）
+            sell_points = result['sell_points']
+            if sell_points:
+                print(f"     卖出: {sell_points[0]['reason']}")
         else:
             # 未有完整交易 → 可以交易
             print(f"  ✅ 可交易 - 未匹配到完整交易")
@@ -162,14 +165,20 @@ def example_profit_analysis():
     print()
     
     # 卖出分析
-    sell = result["sell_point"]
+    sell_points = result["sell_points"]
     profit = result["profit"]
     
     print("卖出明细:")
-    print(f"  价格: {sell['price']:.8f}")
-    print(f"  K线: #{sell['kline_index']}")
-    print(f"  原因: {sell['reason']}")
-    print(f"  类型: {sell['type']}")
+    for i, sell in enumerate(sell_points, 1):
+        if len(sell_points) > 1:
+            print(f"  第{i}次卖出:")
+        print(f"    价格: {sell['price']:.8f}")
+        print(f"    比例: {sell.get('percentage', 1.0)*100:.0f}%")
+        print(f"    K线: #{sell['kline_index']}")
+        print(f"    原因: {sell['reason']}")
+        print(f"    类型: {sell['type']}")
+        if i < len(sell_points):
+            print()
     print()
     
     # 收益分析
@@ -181,12 +190,14 @@ def example_profit_analysis():
     profit_emoji = "🟢" if profit['profit_rate'] >= 0 else "🔴"
     print(f"  收益率: {profit_emoji} {profit['profit_rate']*100:+.2f}%")
     
-    # 计算涨幅
-    avg_buy_price = profit['invested'] / sum(
-        buy['amount'] / buy['price'] for buy in result['buy_points']
-    )
-    price_change = (sell['price'] - avg_buy_price) / avg_buy_price
-    print(f"  价格涨幅: {price_change*100:+.2f}%")
+    # 计算涨幅（使用最后一次卖出价格）
+    if sell_points:
+        avg_buy_price = profit['invested'] / sum(
+            buy['amount'] / buy['price'] for buy in result['buy_points']
+        )
+        last_sell_price = sell_points[-1]['price']
+        price_change = (last_sell_price - avg_buy_price) / avg_buy_price
+        print(f"  价格涨幅: {price_change*100:+.2f}%")
     print()
 
 

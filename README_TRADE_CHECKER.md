@@ -71,13 +71,16 @@ else:
             "timestamp": 1000000
         }
     ],
-    "sell_point": {
-        "price": 0.00008,
-        "kline_index": 25,
-        "timestamp": 1005000,
-        "reason": "ao≥35k绿转红",
-        "type": "ao_sell"
-    },
+    "sell_points": [
+        {
+            "price": 0.00008,
+            "kline_index": 25,
+            "timestamp": 1005000,
+            "reason": "AO卖出信号",
+            "type": "ao_sell",
+            "percentage": 1.0
+        }
+    ],
     "profit": {
         "invested": 0.06,
         "returned": 0.096,
@@ -93,7 +96,7 @@ else:
 {
     "matched": False,
     "buy_points": [],
-    "sell_point": None,
+    "sell_points": [],
     "profit": None
 }
 ```

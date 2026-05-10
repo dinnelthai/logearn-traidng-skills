@@ -7,7 +7,8 @@ import unittest
 from trading.trade_checker import (
     check_single_trade,
     check_single_trade_from_raw,
-    _calculate_profit
+    _calculate_profit,
+    _calculate_profit_multi_sell
 )
 from trading.fib_calculator import Kline
 
@@ -83,6 +84,39 @@ class TestCalculateProfit(unittest.TestCase):
         self.assertAlmostEqual(profit["returned"], 0.176, places=4)
         self.assertAlmostEqual(profit["profit_sol"], 0.076, places=4)
         self.assertAlmostEqual(profit["profit_rate"], 0.76, places=2)
+    
+    def test_calculate_profit_multi_sell(self):
+        """测试多次分批卖出的利润计算"""
+        entry_prices = {"buy_618": 0.00005}
+        entry_amounts = {"buy_618": 0.06}
+        tiers_bought = ["buy_618"]
+        
+        # 模拟两次卖出：
+        # 1. 在 0.00008 卖出 30%
+        # 2. 在 0.00010 卖出 50%
+        sell_records = [
+            {"price": 0.00008, "percentage": 0.30},
+            {"price": 0.00010, "percentage": 0.50}
+        ]
+        
+        profit = _calculate_profit_multi_sell(
+            entry_prices, entry_amounts, tiers_bought, sell_records
+        )
+        
+        # 买入: 0.06 SOL @ 0.00005 = 1200 tokens
+        # 第一次卖出: 1200 * 0.30 = 360 tokens @ 0.00008 = 0.0288 SOL
+        # 第二次卖出: 1200 * 0.50 = 600 tokens @ 0.00010 = 0.0600 SOL
+        # 总回报: 0.0288 + 0.0600 = 0.0888 SOL
+        # 已卖出部分投入: 0.06 * 0.80 = 0.048 SOL
+        # 利润: 0.0888 - 0.048 = 0.0408 SOL
+        # 收益率: 0.0408 / 0.048 = 85%
+        
+        self.assertAlmostEqual(profit["invested"], 0.06, places=4)
+        self.assertAlmostEqual(profit["invested_for_sold"], 0.048, places=4)
+        self.assertAlmostEqual(profit["returned"], 0.0888, places=4)
+        self.assertAlmostEqual(profit["profit_sol"], 0.0408, places=4)
+        self.assertAlmostEqual(profit["profit_rate"], 0.85, places=2)
+        self.assertAlmostEqual(profit["sell_percentage"], 0.80, places=2)
 
 
 class TestCheckSingleTrade(unittest.TestCase):
@@ -132,7 +166,7 @@ class TestCheckSingleTrade(unittest.TestCase):
         # 测试返回结构正确
         self.assertIn("matched", result)
         self.assertIn("buy_points", result)
-        self.assertIn("sell_point", result)
+        self.assertIn("sell_points", result)
         self.assertIn("profit", result)
         
         # 如果匹配到完整交易，检查数据完整性
@@ -141,7 +175,7 @@ class TestCheckSingleTrade(unittest.TestCase):
             self.assertGreater(len(result["buy_points"]), 0)
             
             # 应该有卖出点
-            self.assertIsNotNone(result["sell_point"])
+            self.assertGreater(len(result["sell_points"]), 0)
             
             # 应该有利润信息
             self.assertIsNotNone(result["profit"])
@@ -173,7 +207,7 @@ class TestCheckSingleTrade(unittest.TestCase):
         
         # 不应该匹配到完整交易
         self.assertFalse(result["matched"])
-        self.assertIsNone(result["sell_point"])
+        self.assertEqual(len(result["sell_points"]), 0)
         self.assertIsNone(result["profit"])
     
     def test_buy_points_structure(self):
@@ -205,8 +239,8 @@ class TestCheckSingleTrade(unittest.TestCase):
         
         result = check_single_trade_from_raw(raw_klines, total_capital=2.0)
         
-        if result["matched"]:
-            sell = result["sell_point"]
+        if result["matched"] and result["sell_points"]:
+            sell = result["sell_points"][0]
             
             # 检查必要字段
             self.assertIn("price", sell)
@@ -214,12 +248,14 @@ class TestCheckSingleTrade(unittest.TestCase):
             self.assertIn("timestamp", sell)
             self.assertIn("reason", sell)
             self.assertIn("type", sell)
+            self.assertIn("percentage", sell)
             
             # 检查卖出类型
             self.assertIn(sell["type"], ["ao_sell", "stop_loss", "fib_sell"])
             
-            # 检查价格
+            # 检查价格和比例
             self.assertGreater(sell["price"], 0)
+            self.assertGreater(sell["percentage"], 0)
     
     def test_profit_structure(self):
         """测试利润数据结构"""

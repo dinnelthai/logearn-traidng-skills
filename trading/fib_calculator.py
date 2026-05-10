@@ -26,6 +26,7 @@ class Kline:
     low: float
     close: float
     volume: float
+    market_cap: float = 0.0  # 市值（单位：k，即千美元），默认0表示无市值数据
 
 
 # ─── K线解析 ───────────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ def parse_klines(raw: list[dict]) -> list[Kline]:
             low=float(r["low"]),
             close=float(r["close"]),
             volume=float(r["volume"]) if r.get("volume") else 0.0,
+            market_cap=float(r.get("market_cap", 0.0)),  # 支持市值字段，默认0
         )
         for r in raw
     ]
@@ -468,7 +470,7 @@ def fib_signal(klines: list[Kline], entry_price: float = None,
     if not skip_ao:
         ao_values = calc_ao(klines)
         sell = ao_sell_signal(ao_values, entry_price=entry_price, current_price=latest_close)
-        if sell:
+        if sell and sell.get("action") == "sell":
             # AO 触发 → 全部托管给 AO，忽略 Fib 卖出
             return {
                 "action": "sell",

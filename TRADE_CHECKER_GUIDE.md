@@ -105,13 +105,14 @@ else:
             "timestamp": 1001000
         }
     ],
-    "sell_point": {
+    "sell_points": [{
         "price": 0.00008,
         "kline_index": 25,
         "timestamp": 1005000,
-        "reason": "ao≥35k绿转红",
-        "type": "ao_sell"
-    },
+        "reason": "AO卖出信号",
+        "type": "ao_sell",
+        "percentage": 1.0
+    }],
     "profit": {
         "invested": 0.10,      # 总投入（SOL）
         "returned": 0.176,     # 总回报（SOL）
@@ -127,7 +128,7 @@ else:
 {
     "matched": False,
     "buy_points": [],
-    "sell_point": None,
+    "sell_points": [],
     "profit": None
 }
 ```
@@ -146,7 +147,9 @@ else:
 | `kline_index` | int | K线索引（从0开始）|
 | `timestamp` | int | 时间戳 |
 
-### sell_point（卖出点）
+### sell_points（卖出点列表）
+
+注意：支持多次卖出（Fib分批卖出），所以是一个列表。每个卖出点包含：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
