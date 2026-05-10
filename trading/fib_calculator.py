@@ -626,10 +626,11 @@ def calc_fib(klines: list[Kline]) -> list[FibLevel]:
     if len(klines) < 2:
         return []
 
-    opens  = [k.open  for k in klines]
-    highs  = [k.high  for k in klines]
-    lows   = [k.low   for k in klines]
-    closes = [k.close for k in klines]
+    # 使用 SOL 价格（openU/highU/lowU/closeU）与其他计算保持一致
+    opens  = [k.openU if hasattr(k, 'openU') else k.open for k in klines]
+    highs  = [k.highU if hasattr(k, 'highU') else k.high for k in klines]
+    lows   = [k.lowU if hasattr(k, 'lowU') else k.low for k in klines]
+    closes = [k.closeU if hasattr(k, 'closeU') else k.close for k in klines]
 
     # 波谷 = 第一根K的最低价（固定），波峰 = 窗口内最高价
     swing_low  = lows[0]   # 第一根K的low，固定不变

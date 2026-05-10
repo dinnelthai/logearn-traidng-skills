@@ -62,7 +62,8 @@ def split_trades_by_sell_points(
                 print(f"时间: {trigger_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
                 print(f"北京: {trigger_time.astimezone(beijing_tz).strftime('%Y-%m-%d %H:%M:%S')}")
                 print(f"市值: {mcap_k:.2f}k")
-                print(f"价格: {k.close:.8f}")
+                price = k.closeU if hasattr(k, 'closeU') else k.close
+                print(f"价格(SOL): {price:.8f}")
                 print(f"{'='*80}\n")
                 break
         
