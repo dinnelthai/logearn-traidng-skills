@@ -40,6 +40,17 @@ def split_trades_by_sell_points(
     """
     # 找到第一次市值 >= 门槛的K线索引（全局检查一次）
     mcap_trigger_index = None
+    
+    print(f"\n[DEBUG split_trades_by_sell_points]")
+    print(f"  min_swing_high_mcap: {min_swing_high_mcap}")
+    print(f"  supply: {supply}")
+    print(f"  K线数: {len(klines)}")
+    if len(klines) > 0:
+        first_k = klines[0]
+        print(f"  第1根K线有market_cap: {hasattr(first_k, 'market_cap')}")
+        if hasattr(first_k, 'market_cap'):
+            print(f"  第1根K线market_cap: {first_k.market_cap}k")
+    
     if min_swing_high_mcap is not None and supply is not None and supply > 0:
         for i, k in enumerate(klines):
             mcap_k = 0
