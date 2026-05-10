@@ -52,15 +52,29 @@ def logearn_kline(ca, interval=300, size=96, end=None):
 def fetch_logearn(ca):
     """用LogEarn拉K线，翻页到swap_begin前2小时；每根K线补充market_cap（USD）"""
     cache_file = f"{CACHE}/{ca}_logearn.json"
-    if os.path.exists(cache_file):
-        print(f"  📦 LogEarn缓存命中")
-        with open(cache_file) as f:
-            return json.load(f)
-
-    # 先拿 supply
+    
+    # 先拿 supply（无论是否有缓存都需要）
     info = get_token_info(ca)
     supply = info['total_supply'] if info else 0
     print(f"  supply: {supply}")
+    
+    if os.path.exists(cache_file):
+        print(f"  📦 LogEarn缓存命中")
+        with open(cache_file) as f:
+            cached_data = json.load(f)
+        
+        # 检查缓存是否有 market_cap 字段
+        if cached_data and 'market_cap' not in cached_data[0]:
+            print(f"  ⚠️ 缓存无market_cap，需要补充")
+            # 补充 market_cap
+            if supply and supply > 0:
+                for k in cached_data:
+                    closeU = k.get('closeU')
+                    if closeU is not None and closeU > 0:
+                        k['market_cap'] = round(closeU * supply / 1000, 4)
+                print(f"  💹 市值已补充到缓存数据")
+        
+        return cached_data
 
     swap_begin = _get_swap_begin(ca)
     print(f"  swap_begin: {swap_begin}")
