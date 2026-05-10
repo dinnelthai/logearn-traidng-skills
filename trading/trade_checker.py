@@ -87,9 +87,6 @@ def filter_klines_by_market_cap(
 def check_single_trade(klines: List[Kline], 
                        total_capital: float = 2.0,
                        config = None,
-                       min_market_cap: float = None,
-                       supply: float = None,
-                       min_swing_high_mcap: float = None,
                        mcap_trigger_index: int = None) -> Dict:
     """
     检测K线是否符合一次完整交易（买入→卖出）
@@ -103,9 +100,7 @@ def check_single_trade(klines: List[Kline],
         klines: K线数据列表
         total_capital: 总资金（SOL）
         config: 交易配置
-        min_market_cap: 最小市值阈值（单位：k），None表示不过滤
-        supply: 代币总量（用于计算波峰市值）
-        min_swing_high_mcap: 波峰市值门槛（单位：k USD），None表示不启用
+        mcap_trigger_index: 市值触发点索引，从这个索引之后才开始检测波峰
     
     Returns:
         Dict: {
@@ -119,21 +114,8 @@ def check_single_trade(klines: List[Kline],
     if config is None:
         config = DEFAULT_CONFIG
     
-    # 市值过滤
-    if min_market_cap is not None:
-        original_count = len(klines)
-        klines = filter_klines_by_market_cap(klines, min_market_cap)
-        if not klines:
-            return {
-                "matched": False,
-                "buy_points": [],
-                "sell_points": [],
-                "profit": None,
-                "filter_reason": f"市值未达到{min_market_cap}k（共{original_count}根K线）"
-            }
-    
     # mcap_trigger_index 由调用方传入（在 split_trades_by_sell_points 中全局检查一次）
-    # 这里直接使用即可
+    # 用于跳过触发点之前的K线检测
     
     # 初始化 PositionManager（100% 复用）
     position_manager = PositionManager(

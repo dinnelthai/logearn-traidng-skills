@@ -12,7 +12,6 @@ from .trade_checker import check_single_trade, _format_market_cap
 def split_trades_by_sell_points(
     klines: List[Kline],
     total_capital: float = 2.0,
-    min_market_cap: float = None,
     supply: float = None,
     min_swing_high_mcap: float = None,
     max_trades: int = 5
@@ -23,9 +22,8 @@ def split_trades_by_sell_points(
     Args:
         klines: K线数据列表
         total_capital: 总资金
-        min_market_cap: 最小市值阈值
         supply: 代币总量
-        min_swing_high_mcap: 波峰市值门槛
+        min_swing_high_mcap: 波峰市值门槛（单位：k USD）
         max_trades: 最多分析几次交易
     
     Returns:
@@ -101,9 +99,6 @@ def split_trades_by_sell_points(
         result = check_single_trade(
             remaining_klines,
             total_capital=total_capital,
-            min_market_cap=min_market_cap,
-            supply=supply,
-            min_swing_high_mcap=min_swing_high_mcap,
             mcap_trigger_index=relative_trigger_index
         )
         
@@ -210,7 +205,6 @@ def analyze_token_trades(
     trades_raw = split_trades_by_sell_points(
         klines,
         total_capital=total_capital,
-        min_market_cap=min_market_cap,
         supply=supply,
         min_swing_high_mcap=min_swing_high_mcap,
         max_trades=max_trades
