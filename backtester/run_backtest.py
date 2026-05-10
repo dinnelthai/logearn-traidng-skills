@@ -172,6 +172,7 @@ def normalize_klines(raw):
         'low': float(k['low']),
         'close': float(k['close']),
         'volume': float(k.get('volume', 0)),
+        'market_cap': float(k.get('market_cap', 0.0)),  # 保留market_cap字段
     } for k in raw]
 
 # ── 回测 ─────────────────────────────────────────────
