@@ -30,11 +30,17 @@ def run_backtest(ca):
 
     # 获取代币信息
     info = get_token_info(ca)
-    symbol = info['symbol'] if info else 'UNKNOWN'
+    if not info:
+        return None, "无法获取代币信息（get_token_info返回None）"
+    
+    symbol = info.get('symbol', 'UNKNOWN')
+    supply = info.get('total_supply')
+    
+    if not supply or supply <= 0:
+        return None, f"无效的supply: {supply}"
 
     # 回测：min_swing_high_mcap=180k USD（波峰市值门槛）
     min_swing_high_mcap = 180.0  # 180k
-    supply = info.get('total_supply') if info else None
     
     print(f"\n{'='*80}")
     print(f"回测参数:")
