@@ -1,188 +1,110 @@
-# 🚀 LogEarn Trading Skills
+# 🚀# LogEarn Trading Skills
 
-**Solana Meme币交易模块 - 独立的交易逻辑库**
-
-专业的交易执行、仓位管理和止盈止损模块，可独立使用或集成到任何交易系统。
+基于 Fibonacci 回撤 + AO (Awesome Oscillator) 的 Solana 代币交易策略模块。
 
 ---
 
-## 🎯 核心功能
-
-### 3大核心模块
+## 📁 项目结构
 
 ```
-1. TradeExecutor - 交易执行器
-   ├─ 买入token（限价/市价）
-   ├─ 卖出token（全部/部分）
-   ├─ 获取持仓信息
-   └─ LogEarn API集成
-
-2. PositionManager - 仓位管理器
-   ├─ 仓位大小计算
-   ├─ 仓位上限检查（30%）
-   ├─ 交易时间检查（13点前）
-   ├─ 加权平均价格计算
-   └─ 持仓市值计算
-
-3. ProfitManager - 止盈止损管理器
-   ├─ 固定止盈检查（50%/100%）
-   ├─ AO卖出信号检测
-   ├─ 止损检查
-   ├─ AO启动检测
-   └─ 收益率计算
+logearn-traidng-skills/
+├── trading/              # 核心交易模块
+│   ├── fib_calculator.py    # Fibonacci + AO 计算
+│   ├── position_manager.py  # 仓位管理
+│   ├── trade_checker.py     # 交易检测器
+│   ├── win_rate_analyzer.py # 胜率分析器
+│   ├── executor.py          # 交易执行器
+│   └── config.py            # 配置管理
+│
+├── backtester/           # 回测模块
+│   ├── backtest.py          # 回测主程序
+│   ├── run_backtest.py      # 回测运行器
+│   ├── fetch_klines.py      # K线数据获取
+│   └── gen_html.py          # HTML报告生成
+│
+├── tests/                # 测试文件
+│   ├── test_*.py            # 单元测试
+│   └── test_swing_high_mcap_filter.py  # 波峰市值门槛测试
+│
+├── examples/             # 使用示例
+│   ├── example_trade_check.py
+│   ├── example_win_rate_analysis.py
+│   └── example_market_cap_filter.py
+│
+├── diagnostics/          # 诊断工具
+│   ├── diagnose_backtest_mcap.py
+│   ├── add_backtest_debug.py
+│   └── test_ca_mcap.py
+│
+├── docs/                 # 文档
+│   ├── SWING_HIGH_MCAP_FILTER_GUIDE.md
+│   ├── TRADE_CHECKER_GUIDE.md
+│   ├── IMPLEMENTATION_SUMMARY.md
+│   └── ...
+│
+├── test_trading.py       # 集成测试
+├── requirements.txt      # 依赖
+├── setup.py             # 安装配置
+└── README.md            # 本文件
 ```
 
 ---
 
 ## 🚀 快速开始
 
-### 安装
+### 1. 安装依赖
 
 ```bash
-git clone https://github.com/dinnelthai/logearn-trading-skills.git
-cd logearn-trading-skills
+pip install -r requirements.txt
 ```
 
-### 基本使用
+### 2. 运行示例
 
-```python
-from trading import TradeExecutor, PositionManager, ProfitManager
+```bash
+# 交易检测示例
+python examples/example_trade_check.py
 
-# 初始化
-executor = TradeExecutor(wallet="your_wallet_address")
-position_mgr = PositionManager(max_position_ratio=0.30)
-profit_mgr = ProfitManager(profit_target_50=0.50)
+# 胜率分析示例
+python examples/example_win_rate_analysis.py
 
-# 买入
-result = executor.buy(
-    ca="token_address",
-    amount_sol=0.05,
-    limit_price=0.00004
-)
+# 市值过滤示例
+python examples/example_market_cap_filter.py
+```
 
-if result.success:
-    print(f"买入成功: {result.message}")
+### 3. 运行回测
 
-# 检查仓位
-positions = executor.get_positions()
-can_buy, reason = position_mgr.can_buy(
-    ca="token_address",
-    amount_sol=0.05,
-    total_capital=2.0,
-    positions=positions
-)
-
-# 检查止盈
-action = profit_mgr.check_profit_target(
-    current_price=0.00006,
-    avg_price=0.00004,
-    profit_50_sold=False,
-    ao_active=False
-)
-
-if action.should_sell:
-    print(f"触发止盈: {action.reason}")
-    result = executor.sell(ca="token_address", percentage=action.percentage)
+```bash
+python backtester/run_backtest.py <CA地址>
 ```
 
 ---
 
-## 📦 模块说明
+## 📊 核心功能
 
-### TradeExecutor - 交易执行器
+### 1. Fibonacci 回撤策略
 
-```python
-from trading import TradeExecutor
+- **买入档位**: 0.618, 0.786, 0.861
+- **卖出档位**: 1.000 (回到波峰), 1.272 (扩展位)
+- **止损**: 0.920 (波峰的92%)
 
-executor = TradeExecutor(
-    wallet="your_wallet_address",
-    logearn_cli_path="/path/to/logearn-cli.py"  # 可选
-)
+### 2. AO (Awesome Oscillator) 卖出
 
-# 买入
-result = executor.buy(
-    ca="token_address",
-    amount_sol=0.05,
-    limit_price=0.00004,
-    current_price=0.000038,
-    slippage=0.02
-)
+- **零轴上方**: AO > 35k 时，绿转红第二根卖出
+- **零轴下方**: AO < 35k 时，收益率 > 50% 才卖出
 
-# 卖出（全部）
-result = executor.sell(ca="token_address", percentage=1.0)
+### 3. 仓位管理
 
-# 卖出（50%）
-result = executor.sell(ca="token_address", percentage=0.5)
+- **分档买入**: 0.618档3%, 0.786档2%, 0.861档1%
+- **分批卖出**: 1.000档卖30%, 1.272档卖50%
+- **最大仓位**: 单币30%
 
-# 获取持仓
-positions = executor.get_positions()
-```
+### 4. 市值过滤（双重机制）
 
----
-
-### PositionManager - 仓位管理器
+#### K线市值过滤
+从第一次达到最小市值的K线开始分析
 
 ```python
-from trading import PositionManager
-
-pm = PositionManager(
-    max_position_ratio=0.30,  # 单币最大30%
-    min_position_sol=0.005,   # 最小0.005 SOL
-    trading_end_hour=13       # 13点后禁止开仓
-)
-
-# 计算买入金额
-amount = pm.calculate_position_size(total_capital=2.0, tier="buy_618")
-
-# 检查是否可以买入
-can_buy, reason = pm.can_buy(
-    ca="token_address",
-    amount_sol=0.05,
-    total_capital=2.0,
-    positions=positions
-)
-
-# 计算加权平均价格
-avg_price = pm.calculate_weighted_avg_price(
-    entry_prices={"buy_618": 0.00004, "buy_786": 0.00003},
-    entry_amounts={"buy_618": 0.06, "buy_786": 0.04},
-    tiers_bought=["buy_618", "buy_786"]
-)
-
-# 获取持仓市值
-value = pm.get_position_value(positions, ca="token_address")
-
-# 获取持仓比例
-ratio = pm.get_position_ratio(positions, total_capital=2.0)
-```
-
----
-
-### ProfitManager - 止盈止损管理器
-
-```python
-from trading import ProfitManager
-
-pm = ProfitManager(
-    profit_target_50=0.50,   # 50%止盈
-    profit_target_100=1.00,  # 100%止盈
-)
-
-# 检查止盈
-action = pm.check_profit_target(
-    current_price=0.00006,
-    avg_price=0.00004,
-    profit_50_sold=False,
-    ao_active=False
-)
-
-if action.should_sell:
-    print(f"卖出比例: {action.percentage*100}%")
-    print(f"原因: {action.reason}")
-
-# 检查AO卖出信号
-should_sell, reason = pm.check_ao_sell_signal(
-    ao_values=ao_values,
+result = analyze_token_trades(
     entry_price=0.00004,
     current_price=0.00006
 )

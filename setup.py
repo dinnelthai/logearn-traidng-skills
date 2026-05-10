@@ -12,13 +12,19 @@ long_description = (this_directory / "README.md").read_text(encoding='utf-8')
 
 setup(
     name="logearn-trading-skills",
-    version="1.0.0",
+    version="1.1.0",
     author="dinnelthai",
-    description="Solana Meme币交易模块 - 独立的交易逻辑库",
+    description="Solana Meme币交易模块 - Fibonacci + AO 策略",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/dinnelthai/logearn-traidng-skills",
     packages=find_packages(),
+    py_modules=["papertrading"],
+    entry_points={
+        "console_scripts": [
+            "papertrading=papertrading:main",
+        ],
+    },
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
