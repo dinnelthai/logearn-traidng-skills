@@ -275,6 +275,14 @@ def _swing_from_klines(klines, deviation: float = 5.0, depth: int = 10):
     pivots = zigzag_pivots(highs, lows, deviation=deviation, depth=depth)
 
     h_prices = [price for _, hl, price in pivots if hl == 'H']
+    
+    # 调试输出：显示波峰检测情况
+    if len(klines) >= 50 and len(klines) <= 60:
+        print(f"[DEBUG _swing_from_klines] K线数: {len(klines)}, 检测到波峰数: {len(h_prices)}")
+        print(f"  max(highs): {max(highs):.8f}, 最后一根high: {highs[-1]:.8f}")
+        if h_prices:
+            print(f"  波峰价格: {h_prices}")
+    
     if not h_prices:
         return max(highs), lows[0]
 

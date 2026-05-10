@@ -178,7 +178,10 @@ def check_single_trade(klines: List[Kline],
         
         # 调试输出：显示信号详情
         if i < 100 and i >= (mcap_trigger_index or 0):
-            print(f"  → 信号: {action} | 波峰: {signal.get('swing_high', 0):.8f} | 档位: {signal.get('levels', {})}")
+            swing_high = signal.get('swing_high', 'N/A')
+            swing_high_str = f"{swing_high:.8f}" if isinstance(swing_high, (int, float)) else swing_high
+            levels = signal.get('levels', {})
+            print(f"  → 信号: {action} | 波峰: {swing_high_str} | K线数: {len(current_klines)} | Fib档位: {levels}")
         
         # 买入信号
         if action in ["buy_618", "buy_786", "buy_861"]:
