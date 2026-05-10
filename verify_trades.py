@@ -9,30 +9,33 @@ from backtester.fetch_klines import get_token_info, fetch_klines, normalize_klin
 from trading.win_rate_analyzer import analyze_token_trades
 from datetime import datetime, timezone
 
-# 实际交易点（UTC时间）
+# 实际交易点（北京时间 UTC+8）
 ACTUAL_TRADES = [
     {
         'trade_number': 1,
-        'buy_time_utc': '2024-05-09 01:25:00',
-        'sell_time_utc': '2024-05-09 11:55:00',
+        'buy_time_beijing': '2026-05-09 09:25:00',
+        'sell_time_beijing': '2026-05-09 19:55:00',
     },
     {
         'trade_number': 2,
-        'buy_time_utc': '2024-05-09 14:05:00',
-        'sell_time_utc': '2024-05-09 14:45:00',
+        'buy_time_beijing': '2026-05-09 22:05:00',
+        'sell_time_beijing': '2026-05-09 22:45:00',
     },
     {
         'trade_number': 3,
-        'buy_time_utc': '2024-05-08 15:55:00',
-        'sell_time_utc': '2024-05-08 16:05:00',
+        'buy_time_beijing': '2026-05-08 23:55:00',
+        'sell_time_beijing': '2026-05-09 00:05:00',
     },
 ]
 
-def utc_to_timestamp(utc_str):
-    """UTC时间字符串转时间戳"""
-    dt = datetime.strptime(utc_str, '%Y-%m-%d %H:%M:%S')
-    dt = dt.replace(tzinfo=timezone.utc)
-    return int(dt.timestamp())
+def beijing_to_timestamp(beijing_str):
+    """北京时间字符串转时间戳（UTC+8）"""
+    from datetime import timedelta
+    dt = datetime.strptime(beijing_str, '%Y-%m-%d %H:%M:%S')
+    # 北京时间 = UTC+8，所以减去8小时得到UTC
+    dt_utc = dt - timedelta(hours=8)
+    dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+    return int(dt_utc.timestamp())
 
 def find_closest_kline(klines, target_time, tolerance=600):
     """
@@ -105,12 +108,12 @@ def verify_trades(ca, min_swing_high_mcap=180.0):
     
     for actual in ACTUAL_TRADES:
         trade_num = actual['trade_number']
-        buy_time = utc_to_timestamp(actual['buy_time_utc'])
-        sell_time = utc_to_timestamp(actual['sell_time_utc'])
+        buy_time = beijing_to_timestamp(actual['buy_time_beijing'])
+        sell_time = beijing_to_timestamp(actual['sell_time_beijing'])
         
         print(f"\n【交易 {trade_num}】")
-        print(f"实际买入时间: {actual['buy_time_utc']} UTC (时间戳: {buy_time})")
-        print(f"实际卖出时间: {actual['sell_time_utc']} UTC (时间戳: {sell_time})")
+        print(f"实际买入时间: {actual['buy_time_beijing']} 北京 (时间戳: {buy_time})")
+        print(f"实际卖出时间: {actual['sell_time_beijing']} 北京 (时间戳: {sell_time})")
         
         # 找到最接近的K线
         buy_kline, buy_diff = find_closest_kline(klines, buy_time)
