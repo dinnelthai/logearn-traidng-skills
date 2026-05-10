@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 统一K线获取：LogEarn优先，gmgn兜底
+市值计算：mcap = closeU × total_supply（单位USD，来自LogEarn）
 """
 import sys, os, json, sqlite3, subprocess, time
 
@@ -8,7 +9,28 @@ DB = '/root/ca-backtester/data/backtest.db'
 CACHE = '/root/ca-backtester/cache'
 LOGEARN_KEY = 'sk_3f5eedad86974c0a8680da154b1a8028'
 
-# ── LogEarn ─────────────────────────────────────────────
+# ── LogEarn API ─────────────────────────────────────────
+
+def logearn_cmd(cmd_str, *args):
+    cmd = ['python3', '/root/.hermes/skills/logearn/logearn-cli.py', cmd_str] + list(args)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=20,
+                      env={**os.environ, 'LOGEARN_API_KEY': LOGEARN_KEY})
+    try:
+        return json.loads(r.stdout)
+    except:
+        return []
+
+def get_token_info(ca):
+    """从 LogEarn 获取代币信息，返回 {'total_supply': float, 'symbol': str}"""
+    result = logearn_cmd('log-get-token-info', '--chain', '3', '--token', ca)
+    if result and isinstance(result, list) and len(result) > 0:
+        t = result[0][0]
+        return {
+            'total_supply': t.get('total_supply', 0),
+            'symbol': t.get('symbol', 'UNKNOWN'),
+            'decimals': t.get('decimals', 6),
+        }
+    return None
 
 def logearn_kline(ca, interval=300, size=96, end=None):
     cmd = [
@@ -27,13 +49,20 @@ def logearn_kline(ca, interval=300, size=96, end=None):
         return []
 
 def fetch_logearn(ca):
-    """用LogEarn拉K线，返回[(time, open, high, low, close, volume), ...]"""
+    """用LogEarn拉K线，翻页到swap_begin前2小时；每根K线补充market_cap（USD）"""
     cache_file = f"{CACHE}/{ca}_logearn.json"
     if os.path.exists(cache_file):
+        print(f"  📦 LogEarn缓存命中")
         with open(cache_file) as f:
             return json.load(f)
 
+    # 先拿 supply
+    info = get_token_info(ca)
+    supply = info['total_supply'] if info else 0
+    print(f"  supply: {supply}")
+
     swap_begin = _get_swap_begin(ca)
+    print(f"  swap_begin: {swap_begin}")
 
     all_klines = []
     current_end = int(time.time())
@@ -44,6 +73,7 @@ def fetch_logearn(ca):
             break
         all_klines.extend(klines)
         oldest = klines[0]['time']
+        print(f"    拉到 {len(klines)} 条，最早 {oldest}")
         if oldest <= (swap_begin if swap_begin else 0):
             break
         current_end = oldest - 1
@@ -56,22 +86,48 @@ def fetch_logearn(ca):
             seen.add(k['time'])
             unique.append(k)
 
+    # 过滤到swap_begin前2小时
     if swap_begin:
         cutoff = swap_begin - 7200
         unique = [k for k in unique if k['time'] >= cutoff]
+        print(f"  过滤后: {len(unique)} 条")
+
+    # 补充 market_cap（closeU × supply，转k单位）
+    if supply and supply > 0:
+        for k in unique:
+            closeU = k.get('closeU')
+            if closeU is not None and closeU > 0:
+                k['market_cap'] = round(closeU * supply / 1000, 4)
+        
+        # 前几条可能closeU=0，用第一个有效值填充
+        first_valid_mcap = None
+        for k in unique:
+            if k.get('market_cap', 0) > 0:
+                first_valid_mcap = k['market_cap']
+                break
+        if first_valid_mcap:
+            for k in unique:
+                if k.get('market_cap', 0) == 0:
+                    k['market_cap'] = first_valid_mcap
+        print(f"  💹 市值已补充 (supply={supply:.0f}, 单位k)")
+    else:
+        print(f"  ⚠️ 无法获取supply，跳过市值字段")
 
     os.makedirs(CACHE, exist_ok=True)
     with open(cache_file, 'w') as f:
         json.dump(unique, f)
+    print(f"  ✅ LogEarn缓存写入: {len(unique)} 条")
     return unique
 
 # ── gmgn 兜底 ───────────────────────────────────────────
 
 def fetch_gmgn(ca):
     """gmgn-cli 拉K线"""
-    cache_file = f"{CACHE}/{ca}.json"
+    cache_file = f"{CACHE}/{ca}_gmgn.json"
     if os.path.exists(cache_file):
-        return json.load(f)
+        print(f"  📦 gmgn缓存命中")
+        with open(cache_file) as f:
+            return json.load(f)
 
     swap_begin = _get_swap_begin(ca)
 
@@ -90,6 +146,7 @@ def fetch_gmgn(ca):
 
     newest_ts = latest[-1]['time'] // 1000
     open_ts = (swap_begin - 3600) if swap_begin else (newest_ts - 86400)
+    print(f"  时间范围: {open_ts} ~ {newest_ts}")
 
     all_klines = []
     current_to = newest_ts + 300
@@ -108,6 +165,7 @@ def fetch_gmgn(ca):
             break
         all_klines.extend(lst)
         oldest = lst[0]['time'] // 1000
+        print(f"    拉到 {len(lst)} 条，最早 {oldest}")
         if len(lst) < 100:
             break
         current_to = oldest - 300
@@ -124,6 +182,7 @@ def fetch_gmgn(ca):
     os.makedirs(CACHE, exist_ok=True)
     with open(cache_file, 'w') as f:
         json.dump(unique, f)
+    print(f"  ✅ gmgn缓存写入: {len(unique)} 条")
     return unique
 
 def _get_swap_begin(ca):
@@ -154,15 +213,23 @@ def fetch_klines(ca):
     print(f"  ❌ 两个数据源都失败")
     return raw or []
 
-def normalize_klines(raw):
-    return [{
-        'time': k['time'] // 1000 if isinstance(k['time'], int) and k['time'] > 1e12 else k['time'],
-        'open': float(k['open']),
-        'high': float(k['high']),
-        'low': float(k['low']),
-        'close': float(k['close']),
-        'volume': float(k.get('volume', 0)),
-    } for k in raw]
+def normalize_klines(raw, supply=None):
+    """raw_klines → list[dict]，market_cap单位USD"""
+    result = []
+    for k in raw:
+        item = {
+            'time': k['time'] // 1000 if isinstance(k['time'], int) and k['time'] > 1e12 else k['time'],
+            'open': float(k['open']),
+            'high': float(k['high']),
+            'low': float(k['low']),
+            'close': float(k['close']),
+            'volume': float(k.get('volume', 0)),
+            'closeU': float(k['closeU']) if k.get('closeU') is not None else 0.0,
+        }
+        if 'market_cap' in k:
+            item['market_cap'] = k['market_cap']  # USD
+        result.append(item)
+    return result
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:

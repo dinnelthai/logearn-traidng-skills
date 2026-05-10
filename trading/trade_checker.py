@@ -79,8 +79,9 @@ def filter_klines_by_market_cap(
     if first_touch_index is None:
         return []
     
-    # 返回从第一次达到阈值开始的所有K线
-    return klines[first_touch_index:]
+    # 从第一次达到阈值开始返回，保留前面50根（fib需要看到完整swing high）
+    start = max(0, first_touch_index - 50)
+    return klines[start:]
 
 
 def check_single_trade(klines: List[Kline], 
