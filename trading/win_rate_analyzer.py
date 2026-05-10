@@ -18,7 +18,7 @@ def split_trades_by_sell_points(
     max_trades: int = 5
 ) -> List[Dict]:
     """
-    基于卖出点分割多次交易
+    基于卖出点分割多次交易（按时间顺序）
     
     Args:
         klines: K线数据列表
@@ -29,21 +29,22 @@ def split_trades_by_sell_points(
         max_trades: 最多分析几次交易
     
     Returns:
-        List[Dict]: 每次交易的结果
+        List[Dict]: 每次交易的结果（按时间顺序）
         [
             {
-                "trade_number": 1,
-                "klines_used": 50,  # 使用了多少根K线
-                "result": {...}  # check_single_trade的结果
+                "trade_number": 1,  # 按时间顺序编号
+                "klines_used": 50,
+                "start_index": 0,   # 在原始K线中的起始索引
+                "result": {...}
             },
             ...
         ]
     """
     trades = []
     remaining_klines = klines
-    trade_number = 1
+    current_offset = 0  # 当前在原始K线中的偏移量
     
-    while trade_number <= max_trades and len(remaining_klines) > 0:
+    while len(trades) < max_trades and len(remaining_klines) > 0:
         # 运行回测
         result = check_single_trade(
             remaining_klines,
@@ -57,10 +58,19 @@ def split_trades_by_sell_points(
         if not result["matched"]:
             break
         
-        # 记录这次交易
+        # 获取第一个买入点的时间（用于排序）
+        buy_points = result.get("buy_points", [])
+        if not buy_points:
+            break
+        
+        first_buy_time = buy_points[0].get("time", 0)
+        
+        # 记录这次交易（暂时不编号）
         trades.append({
-            "trade_number": trade_number,
+            "trade_number": 0,  # 稍后按时间排序后重新编号
             "klines_used": len(remaining_klines),
+            "start_index": current_offset,
+            "first_buy_time": first_buy_time,  # 用于排序
             "result": result
         })
         
@@ -78,8 +88,18 @@ def split_trades_by_sell_points(
         if next_start_index >= len(remaining_klines):
             break
         
-        remaining_klines = klines[next_start_index:]
-        trade_number += 1
+        # 更新偏移量和剩余K线
+        current_offset += next_start_index
+        remaining_klines = klines[current_offset:]
+    
+    # 按第一个买入时间排序
+    trades.sort(key=lambda t: t['first_buy_time'])
+    
+    # 重新编号（按时间顺序）
+    for i, trade in enumerate(trades, 1):
+        trade['trade_number'] = i
+        # 删除临时字段
+        del trade['first_buy_time']
     
     return trades
 
