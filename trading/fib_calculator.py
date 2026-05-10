@@ -4,6 +4,7 @@ FIB: 波谷 = klines[0]["low"]，波峰 = 窗口最高价
 AO:  标准 Bill Williams 实现
 """
 
+from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 from .config import DEFAULT_CONFIG
 

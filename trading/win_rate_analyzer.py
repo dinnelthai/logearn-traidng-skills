@@ -279,7 +279,9 @@ def analyze_token_trades(
             "market_cap_at_buy": buy_market_cap,
             "market_cap_at_sell": sell_market_cap,
             "buy_count": len(buy_points),
-            "sell_count": len(sell_points)
+            "sell_count": len(sell_points),
+            "buy_points": buy_points,
+            "sell_points": sell_points
         })
     
     return {

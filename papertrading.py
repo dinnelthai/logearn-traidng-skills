@@ -4,7 +4,7 @@
 用法: python papertrading.py <CA地址> [市值门槛]
 """
 import sys
-sys.path.insert(0, '/Users/leon/logearn-trading-skills/logearn-traidng-skills')
+sys.path.insert(0, '/root/logearn-trading-skills')
 
 from backtester.fetch_klines import get_token_info, fetch_klines, normalize_klines
 from trading.win_rate_analyzer import analyze_token_trades
