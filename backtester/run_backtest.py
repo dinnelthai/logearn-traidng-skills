@@ -178,7 +178,7 @@ def normalize_klines(raw):
 
 def run_backtest(ca):
     sys.path.insert(0, '/root/logearn-traidng-skills')
-    from trading.trade_checker import check_multiple_trades_from_raw
+    from trading.win_rate_analyzer import analyze_token_trades
 
     raw = fetch_klines(ca)
     if not raw:
@@ -195,15 +195,23 @@ def run_backtest(ca):
     symbol = row[0] if row else 'UNKNOWN'
     mcap = row[1] if row else 0
 
-    min_mcap = max(180_000, mcap * 0.1)
-    result = check_multiple_trades_from_raw(klines, min_mcap=min_mcap)
+    # 使用180k作为最小市值阈值（单位：k）
+    min_market_cap = 180.0  # 180k
+    result = analyze_token_trades(
+        ca=ca,
+        raw_klines=klines,
+        symbol=symbol,
+        total_capital=2.0,
+        min_market_cap=min_market_cap,
+        max_trades=5
+    )
 
     trades = result.get('trades', [])
     total = len(trades)
-    wins = sum(1 for t in trades if t['profit']['profit_rate'] > 0)
+    wins = sum(1 for t in trades if t.get('is_win', False))
     win_rate = wins / total if total > 0 else 0
-    total_profit_pct = sum(t['profit']['profit_rate'] * 100 for t in trades)
-    profits = [t['profit']['profit_rate'] * 100 for t in trades] if trades else [0]
+    total_profit_pct = sum(t.get('profit_rate', 0) * 100 for t in trades)
+    profits = [t.get('profit_rate', 0) * 100 for t in trades] if trades else [0]
 
     return {
         'bt_trade_count': total,

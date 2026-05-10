@@ -60,17 +60,16 @@ def fmt_mcap(mc):
     return f'${mc:,.0f}'
 
 def _fmt_mcap_k(v):
-    """格式化市值（单位k），输出 $X.XX 或 $XM"""
+    """格式化市值（单位k），输出 $X.XK 或 $X.XM"""
     if not v or v <= 0:
         return '—'
-    usd = v * 1000  # k → 美元
-    if usd >= 1_000_000:
-        return f"${usd/1_000_000:.1f}M"
-    if usd >= 1_000:
-        return f"${usd/1_000:.1f}K"
-    if usd < 0.01:
-        return f"${usd:.4f}"  # 极小值保留4位
-    return f"${usd:.2f}"
+    # v 已经是以k为单位，不需要再乘1000
+    if v >= 1000:
+        # >= 1000k = >= 1M
+        return f"${v/1000:.1f}M"
+    else:
+        # < 1000k
+        return f"${v:.1f}K"
 
 def trades_html(tjson, ca, supply):
     """
@@ -151,15 +150,61 @@ def render():
     winning_cas = sum(1 for r in rows if r[6] and r[6] > 0)
     total_profit = sum(r[7] for r in rows)
     profit_color = '#00ff88' if total_profit >= 0 else '#ff4444'
+    
+    # 计算每次交易的胜率统计
+    trades_by_number = {}  # {trade_number: {"total": 0, "wins": 0, "profit_sum": 0}}
+    
+    for r in rows:
+        tjson = r[10]  # bt_trades_json
+        if not tjson:
+            continue
+        try:
+            trades = json.loads(tjson)
+            for t in trades:
+                trade_num = t.get('trade_number', 0)
+                if trade_num not in trades_by_number:
+                    trades_by_number[trade_num] = {"total": 0, "wins": 0, "profit_sum": 0}
+                
+                trades_by_number[trade_num]["total"] += 1
+                if t.get('is_win', False):
+                    trades_by_number[trade_num]["wins"] += 1
+                trades_by_number[trade_num]["profit_sum"] += t.get('profit_rate', 0) * 100
+        except:
+            pass
+    
+    # 计算胜率
+    win_rate_stats = {}
+    for trade_num in sorted(trades_by_number.keys()):
+        stat = trades_by_number[trade_num]
+        total = stat["total"]
+        wins = stat["wins"]
+        win_rate = (wins / total * 100) if total > 0 else 0
+        avg_profit = stat["profit_sum"] / total if total > 0 else 0
+        win_rate_stats[trade_num] = {
+            "total": total,
+            "wins": wins,
+            "win_rate": win_rate,
+            "avg_profit": avg_profit
+        }
 
     # 静态CSS（不用f-string嵌套）
     css = """
 body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a2e; color: #eee; }
 h1 { color: #00d4ff; }
+h2 { color: #00d4ff; margin-top: 30px; }
 .card-grid { display: flex; gap: 20px; margin-bottom: 30px; }
 .card { background: #16213e; padding: 20px; border-radius: 10px; text-align: center; flex: 1; }
 .card .val { font-size: 2em; font-weight: bold; color: #00d4ff; }
 .card .label { color: #aaa; margin-top: 5px; }
+.win-rate-section { background: #16213e; padding: 20px; border-radius: 10px; margin-bottom: 30px; }
+.win-rate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-top: 15px; }
+.win-rate-card { background: #0f3460; padding: 15px; border-radius: 8px; border-left: 4px solid #00d4ff; }
+.win-rate-card h3 { margin: 0 0 10px 0; color: #00d4ff; font-size: 1.2em; }
+.win-rate-bar { background: #1a1a2e; height: 30px; border-radius: 5px; overflow: hidden; margin: 10px 0; position: relative; }
+.win-rate-fill { height: 100%; background: linear-gradient(90deg, #00d4ff, #00ff88); display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; transition: width 0.3s; }
+.win-rate-stats { display: flex; justify-content: space-between; font-size: 0.9em; color: #aaa; }
+.stat-item { text-align: center; }
+.stat-item .val { color: #00d4ff; font-size: 1.3em; font-weight: bold; display: block; }
 table { border-collapse: collapse; width: 100%; margin-top: 10px; }
 th { background: #0f3460; padding: 10px; text-align: left; }
 td { padding: 8px; border-bottom: 1px solid #333; }
@@ -177,6 +222,63 @@ button { cursor: pointer; background: #0f3460; color: #00d4ff; border: none; pad
   <div class="card"><div class="val">{winning_cas}</div><div class="label">盈利 CA 数</div></div>
   <div class="card"><div class="val" style="color:{profit_color}">{total_profit:+.2f}%</div><div class="label">净盈亏</div></div>
 </div>"""
+    
+    # 添加胜率统计展示
+    if win_rate_stats:
+        body += '<div class="win-rate-section">'
+        body += '<h2>📈 交易次数胜率分析</h2>'
+        body += '<div class="win-rate-grid">'
+        
+        for trade_num in sorted(win_rate_stats.keys()):
+            stat = win_rate_stats[trade_num]
+            win_rate = stat['win_rate']
+            total = stat['total']
+            wins = stat['wins']
+            losses = total - wins
+            avg_profit = stat['avg_profit']
+            
+            # 胜率颜色
+            if win_rate >= 60:
+                bar_color = 'linear-gradient(90deg, #00ff88, #00d4ff)'
+                emoji = '🟢'
+            elif win_rate >= 50:
+                bar_color = 'linear-gradient(90deg, #ffaa00, #ff8800)'
+                emoji = '🟡'
+            else:
+                bar_color = 'linear-gradient(90deg, #ff4444, #ff6666)'
+                emoji = '🔴'
+            
+            profit_color_val = '#00ff88' if avg_profit >= 0 else '#ff4444'
+            
+            body += f'''
+<div class="win-rate-card">
+  <h3>{emoji} 第{trade_num}次交易</h3>
+  <div class="win-rate-bar">
+    <div class="win-rate-fill" style="width: {win_rate}%; background: {bar_color};">
+      {win_rate:.1f}%
+    </div>
+  </div>
+  <div class="win-rate-stats">
+    <div class="stat-item">
+      <span class="val">{total}</span>
+      <span>总数</span>
+    </div>
+    <div class="stat-item">
+      <span class="val" style="color: #00ff88">{wins}</span>
+      <span>盈利</span>
+    </div>
+    <div class="stat-item">
+      <span class="val" style="color: #ff4444">{losses}</span>
+      <span>亏损</span>
+    </div>
+    <div class="stat-item">
+      <span class="val" style="color: {profit_color_val}">{avg_profit:+.1f}%</span>
+      <span>平均</span>
+    </div>
+  </div>
+</div>'''
+        
+        body += '</div></div>'
 
     table_header = """<table>
 <thead><tr>
