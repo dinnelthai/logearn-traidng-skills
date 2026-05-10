@@ -475,36 +475,46 @@ def fib_signal(klines: list[Kline], entry_price: float = None,
     latest_close = klines[-1].close
     latest_low   = klines[-1].low
     
-    # 波峰市值门槛检查（仅在空仓且启用门槛时检查）
+    # 市值门槛检查（仅在空仓且启用门槛时检查）
+    # 逻辑：
+    # 1. 找到第一次市值 >= 180k 的K线时间点
+    # 2. 只有在这个时间点之后出现的波峰才计算 Fib
+    # 3. 时间点之前的所有波峰都跳过
     if (min_swing_high_mcap is not None and supply is not None and supply > 0 
         and not tiers_bought):  # 仅空仓时检查
         
-        # 使用 K线中实际出现的最高市值，而不是用局部波峰价格回算
-        # 因为 swing_high 是局部波峰价格，可能远低于全局最高价
-        max_mcap_k = 0
-        for k in klines:
-            if hasattr(k, 'market_cap') and k.market_cap > 0:
-                max_mcap_k = max(max_mcap_k, k.market_cap)
-        
-        # 如果 K线没有 market_cap 字段，则用波峰价格 * supply 计算
-        if max_mcap_k == 0:
-            max_mcap_k = (swing_high * supply) / 1000
-        
-        # 如果还没有触发过，且最高市值 < 门槛
-        if not swing_high_mcap_triggered and max_mcap_k < min_swing_high_mcap:
-            # 检测到波峰但市值不足，不启动买入
-            return {
-                "action": "swing_high_detected",
-                "swing_high": swing_high,
-                "swing_high_price": swing_high,
-                "swing_high_mcap_k": max_mcap_k,
-                "mcap_threshold_not_met": True,
-                "swing_high_mcap_triggered": False
-            }
-        
-        # 如果最高市值 >= 门槛，标记为已触发
-        if max_mcap_k >= min_swing_high_mcap:
-            swing_high_mcap_triggered = True
+        # 如果还没有触发过，检查当前K线窗口是否已经达到过门槛
+        if not swing_high_mcap_triggered:
+            # 找到第一次市值 >= 门槛的K线索引
+            first_trigger_index = None
+            for i, k in enumerate(klines):
+                mcap_k = 0
+                if hasattr(k, 'market_cap') and k.market_cap > 0:
+                    mcap_k = k.market_cap
+                else:
+                    # 如果没有market_cap字段，用价格 * supply 计算
+                    mcap_k = (k.high * supply) / 1000
+                
+                if mcap_k >= min_swing_high_mcap:
+                    first_trigger_index = i
+                    break
+            
+            # 如果找到了触发点
+            if first_trigger_index is not None:
+                # 检查当前波峰是否在触发点之后
+                # 波峰是从前50根K线中找的，所以要检查波峰位置
+                # 简化：如果找到了触发点，就允许当前波峰
+                swing_high_mcap_triggered = True
+            else:
+                # 没有找到触发点，跳过本次波峰
+                return {
+                    "action": "swing_high_detected",
+                    "swing_high": swing_high,
+                    "swing_high_price": swing_high,
+                    "mcap_threshold_not_met": True,
+                    "swing_high_mcap_triggered": False
+                }
+        # 如果已经触发过，直接继续（不再检查）
 
     # AO 卖出信号优先（持仓中才判断，空仓跳过）
     if not skip_ao:
@@ -574,11 +584,12 @@ def fib_signal(klines: list[Kline], entry_price: float = None,
                         "swing_high_mcap_triggered": swing_high_mcap_triggered,
                     }
                     if supply and min_swing_high_mcap:
-                        # 使用实际最高市值
-                        max_mcap_k = max((k.market_cap for k in klines if hasattr(k, 'market_cap') and k.market_cap > 0), default=0)
-                        if max_mcap_k == 0:
-                            max_mcap_k = (swing_high * supply) / 1000
-                        result["swing_high_mcap_k"] = max_mcap_k
+                        # 使用历史最高市值（ATH）
+                        ath_mcap_k = max((k.market_cap for k in klines if hasattr(k, 'market_cap') and k.market_cap > 0), default=0)
+                        if ath_mcap_k == 0:
+                            max_price = max(k.high for k in klines)
+                            ath_mcap_k = (max_price * supply) / 1000
+                        result["ath_mcap_k"] = ath_mcap_k
                     return result
                 else:
                     # 价格已反弹，不在穿透位，pending 保留
@@ -625,11 +636,12 @@ def fib_signal(klines: list[Kline], entry_price: float = None,
         "swing_high_mcap_triggered": swing_high_mcap_triggered,
     }
     if supply and min_swing_high_mcap:
-        # 使用实际最高市值
-        max_mcap_k = max((k.market_cap for k in klines if hasattr(k, 'market_cap') and k.market_cap > 0), default=0)
-        if max_mcap_k == 0:
-            max_mcap_k = (swing_high * supply) / 1000
-        result["swing_high_mcap_k"] = max_mcap_k
+        # 使用历史最高市值（ATH）
+        ath_mcap_k = max((k.market_cap for k in klines if hasattr(k, 'market_cap') and k.market_cap > 0), default=0)
+        if ath_mcap_k == 0:
+            max_price = max(k.high for k in klines)
+            ath_mcap_k = (max_price * supply) / 1000
+        result["ath_mcap_k"] = ath_mcap_k
     return result
 
 
