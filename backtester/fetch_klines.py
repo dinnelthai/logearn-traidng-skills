@@ -135,6 +135,7 @@ def fetch_logearn(ca):
             print(f"  ✅ K线连续性检查通过")
 
     # 补充 market_cap（closeU × supply，转k单位）
+    # closeU 是 USD 价格，市值 = USD价格 × 总量
     if supply and supply > 0:
         for k in unique:
             closeU = k.get('closeU')
@@ -317,11 +318,6 @@ def normalize_klines(raw, supply=None):
             'low': float(k['low']),
             'close': float(k['close']),
             'volume': float(k.get('volume', 0)),
-            # SOL 价格字段（用于交易计算）
-            'openU': float(k['openU']) if k.get('openU') is not None else 0.0,
-            'highU': float(k['highU']) if k.get('highU') is not None else 0.0,
-            'lowU': float(k['lowU']) if k.get('lowU') is not None else 0.0,
-            'closeU': float(k['closeU']) if k.get('closeU') is not None else 0.0,
         }
         if 'market_cap' in k:
             item['market_cap'] = k['market_cap']  # USD

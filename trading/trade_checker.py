@@ -148,8 +148,7 @@ def check_single_trade(klines: List[Kline],
         if i < 100 and i >= (mcap_trigger_index or 0):
             from datetime import datetime, timezone
             k_time = datetime.fromtimestamp(klines[i].time, tz=timezone.utc)
-            price = klines[i].closeU if hasattr(klines[i], 'closeU') else klines[i].close
-            print(f"[DEBUG] K线 {i}: {k_time.strftime('%m-%d %H:%M')} UTC | 市值: {klines[i].market_cap:.2f}k | 价格(SOL): {price:.8f}")
+            print(f"[DEBUG] K线 {i}: {k_time.strftime('%m-%d %H:%M')} UTC | 市值: {klines[i].market_cap:.2f}k | 价格(SOL): {klines[i].close:.8f}")
         
         # 如果有触发点，从触发点开始传递K线（保留足够的历史用于波峰识别）
         if mcap_trigger_index is not None:

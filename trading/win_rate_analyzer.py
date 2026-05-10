@@ -46,9 +46,10 @@ def split_trades_by_sell_points(
             if hasattr(k, 'market_cap') and k.market_cap > 0:
                 mcap_k = k.market_cap
             else:
-                # 如果没有market_cap字段，用SOL价格 * supply 计算（与 closeU 一致）
-                closeU = k.closeU if hasattr(k, 'closeU') else k.close
-                mcap_k = (closeU * supply) / 1000
+                # 如果没有market_cap字段，用USD价格 * supply 计算
+                # 注意：需要从原始数据获取 closeU
+                closeU = getattr(k, 'closeU', 0) if hasattr(k, 'closeU') else 0
+                mcap_k = (closeU * supply) / 1000 if closeU > 0 else 0
             
             if mcap_k >= min_swing_high_mcap:
                 mcap_trigger_index = i
@@ -62,8 +63,7 @@ def split_trades_by_sell_points(
                 print(f"时间: {trigger_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
                 print(f"北京: {trigger_time.astimezone(beijing_tz).strftime('%Y-%m-%d %H:%M:%S')}")
                 print(f"市值: {mcap_k:.2f}k")
-                price = k.closeU if hasattr(k, 'closeU') else k.close
-                print(f"价格(SOL): {price:.8f}")
+                print(f"价格(SOL): {k.close:.8f}")
                 print(f"{'='*80}\n")
                 break
         
@@ -76,8 +76,8 @@ def split_trades_by_sell_points(
                 if hasattr(k, 'market_cap') and k.market_cap > 0:
                     mcap_k = k.market_cap
                 else:
-                    closeU = k.closeU if hasattr(k, 'closeU') else k.close
-                    mcap_k = (closeU * supply) / 1000
+                    closeU = getattr(k, 'closeU', 0) if hasattr(k, 'closeU') else 0
+                    mcap_k = (closeU * supply) / 1000 if closeU > 0 else 0
                 if mcap_k > max_mcap:
                     max_mcap = mcap_k
                     max_index = i

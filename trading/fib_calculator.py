@@ -49,10 +49,7 @@ def parse_klines(raw: list[dict]) -> list[Kline]:
 # ─── AO 计算 ────────────────────────────────────────────────────────────────
 
 def median_price(k: Kline) -> float:
-    # 使用 SOL 价格（highU/lowU）与其他计算保持一致
-    high = k.highU if hasattr(k, 'highU') else k.high
-    low = k.lowU if hasattr(k, 'lowU') else k.low
-    return (high + low) / 2
+    return (k.high + k.low) / 2
 
 
 def sma(values: list[float], period: int) -> list:
@@ -272,10 +269,8 @@ def _swing_from_klines(klines, deviation: float = 5.0, depth: int = 10):
                   遇到前一个 H 更低即停止——此时所累积的最大值即为本轮下降起始峰。
     - swing_low:  klines[0].low（固定锚点，不可更改）
     """
-    # 使用 SOL 价格（highU/lowU）而非 USD 价格（high/low）
-    # 因为市值计算用的是 closeU × supply，需要保持单位一致
-    highs = [k.highU if hasattr(k, 'highU') else k.high for k in klines]
-    lows  = [k.lowU if hasattr(k, 'lowU') else k.low for k in klines]
+    highs = [k.high for k in klines]
+    lows  = [k.low  for k in klines]
     pivots = zigzag_pivots(highs, lows, deviation=deviation, depth=depth)
 
     h_prices = [price for _, hl, price in pivots if hl == 'H']
@@ -474,9 +469,8 @@ def fib_signal(
 
     swing_high, swing_low = _swing_from_klines(klines)
     levels = fib_entry_levels(swing_high, swing_low)
-    # 使用 SOL 价格（closeU/lowU）与波峰计算保持一致
-    latest_close = klines[-1].closeU if hasattr(klines[-1], 'closeU') else klines[-1].close
-    latest_low   = klines[-1].lowU if hasattr(klines[-1], 'lowU') else klines[-1].low
+    latest_close = klines[-1].close
+    latest_low   = klines[-1].low
 
     # AO 卖出信号优先（持仓中才判断，空仓跳过）
     if not skip_ao:
@@ -626,11 +620,10 @@ def calc_fib(klines: list[Kline]) -> list[FibLevel]:
     if len(klines) < 2:
         return []
 
-    # 使用 SOL 价格（openU/highU/lowU/closeU）与其他计算保持一致
-    opens  = [k.openU if hasattr(k, 'openU') else k.open for k in klines]
-    highs  = [k.highU if hasattr(k, 'highU') else k.high for k in klines]
-    lows   = [k.lowU if hasattr(k, 'lowU') else k.low for k in klines]
-    closes = [k.closeU if hasattr(k, 'closeU') else k.close for k in klines]
+    opens  = [k.open  for k in klines]
+    highs  = [k.high  for k in klines]
+    lows   = [k.low   for k in klines]
+    closes = [k.close for k in klines]
 
     # 波谷 = 第一根K的最低价（固定），波峰 = 窗口内最高价
     swing_low  = lows[0]   # 第一根K的low，固定不变
