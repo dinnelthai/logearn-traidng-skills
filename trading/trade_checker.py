@@ -144,7 +144,19 @@ def check_single_trade(klines: List[Kline],
         if mcap_trigger_index is not None and i < mcap_trigger_index:
             continue
         
-        current_klines = klines[:i+1]
+        # 调试输出：显示每个K线的处理情况（仅前100根）
+        if i < 100 and i >= (mcap_trigger_index or 0):
+            from datetime import datetime, timezone
+            k_time = datetime.fromtimestamp(klines[i].time, tz=timezone.utc)
+            print(f"[DEBUG] K线 {i}: {k_time.strftime('%m-%d %H:%M')} UTC | 市值: {klines[i].market_cap:.2f}k | 价格: {klines[i].close:.8f}")
+        
+        # 如果有触发点，从触发点开始传递K线（保留足够的历史用于波峰识别）
+        if mcap_trigger_index is not None:
+            # 保留触发点之前的50根K线用于波峰识别
+            start_idx = max(0, mcap_trigger_index - 50)
+            current_klines = klines[start_idx:i+1]
+        else:
+            current_klines = klines[:i+1]
         
         # 计算加权均价（100% 复用 PositionManager 逻辑）
         avg_price = position_manager.calculate_weighted_avg_price(
@@ -168,6 +180,10 @@ def check_single_trade(klines: List[Kline],
             continue
         
         action = signal.get("action")
+        
+        # 调试输出：显示信号详情
+        if i < 100 and i >= (mcap_trigger_index or 0):
+            print(f"  → 信号: {action} | 波峰: {signal.get('swing_high', 0):.8f} | 档位: {signal.get('levels', {})}")
         
         # 买入信号
         if action in ["buy_618", "buy_786", "buy_861"]:
