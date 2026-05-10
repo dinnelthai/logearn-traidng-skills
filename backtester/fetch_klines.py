@@ -63,18 +63,24 @@ def fetch_logearn(ca):
         with open(cache_file) as f:
             cached_data = json.load(f)
         
-        # 检查缓存是否有 market_cap 字段
-        if cached_data and 'market_cap' not in cached_data[0]:
-            print(f"  ⚠️ 缓存无market_cap，需要补充")
-            # 补充 market_cap
-            if supply and supply > 0:
-                for k in cached_data:
-                    closeU = k.get('closeU')
-                    if closeU is not None and closeU > 0:
-                        k['market_cap'] = round(closeU * supply / 1000, 4)
-                print(f"  💹 市值已补充到缓存数据")
-        
-        return cached_data
+        # 检查缓存是否为空
+        if not cached_data or len(cached_data) == 0:
+            print(f"  ⚠️ 缓存为空，删除并重新拉取")
+            os.remove(cache_file)
+            # 继续执行下面的拉取逻辑
+        else:
+            # 检查缓存是否有 market_cap 字段
+            if 'market_cap' not in cached_data[0]:
+                print(f"  ⚠️ 缓存无market_cap，需要补充")
+                # 补充 market_cap
+                if supply and supply > 0:
+                    for k in cached_data:
+                        closeU = k.get('closeU')
+                        if closeU is not None and closeU > 0:
+                            k['market_cap'] = round(closeU * supply / 1000, 4)
+                    print(f"  💹 市值已补充到缓存数据")
+            
+            return cached_data
 
     swap_begin = _get_swap_begin(ca)
     print(f"  swap_begin: {swap_begin}")
@@ -170,10 +176,15 @@ def fetch_logearn(ca):
     else:
         print(f"  ⚠️ 无法获取supply，跳过市值字段")
 
-    os.makedirs(CACHE, exist_ok=True)
-    with open(cache_file, 'w') as f:
-        json.dump(unique, f)
-    print(f"  ✅ LogEarn缓存写入: {len(unique)} 条")
+    # 只缓存非空数据
+    if unique and len(unique) > 0:
+        os.makedirs(CACHE, exist_ok=True)
+        with open(cache_file, 'w') as f:
+            json.dump(unique, f)
+        print(f"  ✅ LogEarn缓存写入: {len(unique)} 条")
+    else:
+        print(f"  ⚠️ K线数据为空，不写入缓存")
+    
     return unique
 
 # ── gmgn 兜底 ───────────────────────────────────────────
