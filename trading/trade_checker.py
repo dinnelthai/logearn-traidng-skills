@@ -150,13 +150,8 @@ def check_single_trade(klines: List[Kline],
             k_time = datetime.fromtimestamp(klines[i].time, tz=timezone.utc)
             print(f"[DEBUG] K线 {i}: {k_time.strftime('%m-%d %H:%M')} UTC | 市值: {klines[i].market_cap:.2f}k | 价格(SOL): {klines[i].close:.8f}")
         
-        # 如果有触发点，从触发点开始传递K线（保留足够的历史用于波峰识别）
-        if mcap_trigger_index is not None:
-            # 保留触发点之前的50根K线用于波峰识别
-            start_idx = max(0, mcap_trigger_index - 50)
-            current_klines = klines[start_idx:i+1]
-        else:
-            current_klines = klines[:i+1]
+        # 传递从头开始的所有K线，与主交易逻辑保持一致
+        current_klines = klines[:i+1]
         
         # 计算加权均价（100% 复用 PositionManager 逻辑）
         avg_price = position_manager.calculate_weighted_avg_price(

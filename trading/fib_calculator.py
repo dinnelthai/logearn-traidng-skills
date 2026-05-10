@@ -271,6 +271,7 @@ def _swing_from_klines(klines, deviation: float = 5.0, depth: int = 10):
     """
     highs = [k.high for k in klines]
     lows  = [k.low  for k in klines]
+    # 使用默认 lookback=5，与主交易逻辑保持一致
     pivots = zigzag_pivots(highs, lows, deviation=deviation, depth=depth)
 
     h_prices = [price for _, hl, price in pivots if hl == 'H']
