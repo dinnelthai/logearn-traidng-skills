@@ -125,8 +125,15 @@ def split_trades_by_sell_points(
             mcap_trigger_index=relative_trigger_index
         )
         
+        # 调试输出
+        print(f"\n[DEBUG Session Result]")
+        print(f"  matched: {result['matched']}")
+        print(f"  buy_points: {len(result.get('buy_points', []))}")
+        print(f"  sell_points: {len(result.get('sell_points', []))}")
+        
         # 如果没有匹配到交易，结束
         if not result["matched"]:
+            print(f"  → Session 未匹配，结束")
             break
         
         # 获取第一个买入点的时间（用于排序）
@@ -145,7 +152,7 @@ def split_trades_by_sell_points(
             "result": result
         })
         
-        # 找到最后一个卖出点的K线索引
+        # 找到最后一个卖出点的K线索引（相对于 remaining_klines）
         sell_points = result.get("sell_points", [])
         if not sell_points:
             break
@@ -156,11 +163,13 @@ def split_trades_by_sell_points(
         # 留出至少10根K线的间隔，避免立即重新买入
         next_start_index = last_sell_index + 10
         
-        if next_start_index >= len(remaining_klines):
+        # 更新偏移量和剩余K线（使用全局索引）
+        current_offset += next_start_index
+        
+        # 检查是否还有剩余K线
+        if current_offset >= len(klines):
             break
         
-        # 更新偏移量和剩余K线
-        current_offset += next_start_index
         remaining_klines = klines[current_offset:]
     
     # 按第一个买入时间排序
