@@ -67,31 +67,72 @@ def fetch_logearn(ca):
 
     all_klines = []
     current_end = int(time.time())
+    max_pages = 100  # 防止无限循环
+    page_count = 0
 
-    while True:
+    while page_count < max_pages:
         klines = logearn_kline(ca, interval=300, size=96, end=current_end)
         if not klines:
+            print(f"    ⚠️ 第{page_count+1}页无数据，停止翻页")
             break
+        
         all_klines.extend(klines)
         oldest = klines[0]['time']
-        print(f"    拉到 {len(klines)} 条，最早 {oldest}")
-        if oldest <= (swap_begin if swap_begin else 0):
+        print(f"    第{page_count+1}页: {len(klines)} 条，最早 {oldest}")
+        
+        # 检查是否已经拉到足够早的数据
+        target_time = (swap_begin - 7200) if swap_begin else 0
+        if oldest <= target_time:
+            print(f"    ✅ 已拉到目标时间 {target_time}")
             break
+        
+        # 如果返回的数据少于请求的size，说明已经到头了
+        if len(klines) < 96:
+            print(f"    ✅ 已拉到最早数据")
+            break
+        
         current_end = oldest - 1
+        page_count += 1
 
-    # 去重排序
-    seen = set()
-    unique = []
-    for k in sorted(all_klines, key=lambda x: x['time']):
-        if k['time'] not in seen:
-            seen.add(k['time'])
-            unique.append(k)
+    if page_count >= max_pages:
+        print(f"    ⚠️ 达到最大翻页数 {max_pages}，停止")
+
+    # 去重排序（使用字典保证顺序，同时去重）
+    seen = {}
+    for k in all_klines:
+        t = k['time']
+        if t not in seen:
+            seen[t] = k
+    
+    # 按时间排序
+    unique = sorted(seen.values(), key=lambda x: x['time'])
 
     # 过滤到swap_begin前2小时
     if swap_begin:
         cutoff = swap_begin - 7200
         unique = [k for k in unique if k['time'] >= cutoff]
         print(f"  过滤后: {len(unique)} 条")
+    
+    # 验证K线连续性（5分钟间隔=300秒）
+    if len(unique) > 1:
+        gaps = []
+        for i in range(1, len(unique)):
+            time_diff = unique[i]['time'] - unique[i-1]['time']
+            if time_diff > 600:  # 超过10分钟认为有间隙
+                gaps.append({
+                    'from': unique[i-1]['time'],
+                    'to': unique[i]['time'],
+                    'gap_minutes': time_diff / 60
+                })
+        
+        if gaps:
+            print(f"  ⚠️ 发现 {len(gaps)} 个时间间隙:")
+            for gap in gaps[:3]:  # 只显示前3个
+                print(f"     {gap['from']} → {gap['to']} (间隔{gap['gap_minutes']:.0f}分钟)")
+            if len(gaps) > 3:
+                print(f"     ... 还有 {len(gaps)-3} 个间隙")
+        else:
+            print(f"  ✅ K线连续性检查通过")
 
     # 补充 market_cap（closeU × supply，转k单位）
     if supply and supply > 0:
@@ -214,6 +255,57 @@ def fetch_klines(ca):
     print(f"  ❌ 两个数据源都失败")
     return raw or []
 
+def validate_klines_integrity(klines, interval=300):
+    """
+    验证K线完整性
+    
+    Args:
+        klines: K线列表
+        interval: K线间隔（秒），默认300（5分钟）
+    
+    Returns:
+        dict: {
+            'is_complete': bool,
+            'total_count': int,
+            'gaps': list,
+            'missing_count': int
+        }
+    """
+    if not klines or len(klines) < 2:
+        return {
+            'is_complete': True,
+            'total_count': len(klines),
+            'gaps': [],
+            'missing_count': 0
+        }
+    
+    gaps = []
+    missing_count = 0
+    
+    for i in range(1, len(klines)):
+        expected_time = klines[i-1]['time'] + interval
+        actual_time = klines[i]['time']
+        time_diff = actual_time - klines[i-1]['time']
+        
+        if time_diff > interval * 1.5:  # 允许50%的误差
+            missing = (time_diff // interval) - 1
+            gaps.append({
+                'index': i,
+                'from_time': klines[i-1]['time'],
+                'to_time': actual_time,
+                'gap_seconds': time_diff,
+                'missing_bars': int(missing)
+            })
+            missing_count += int(missing)
+    
+    return {
+        'is_complete': len(gaps) == 0,
+        'total_count': len(klines),
+        'gaps': gaps,
+        'missing_count': missing_count
+    }
+
+
 def normalize_klines(raw, supply=None):
     """raw_klines → list[dict]，market_cap单位k（千美元）"""
     result = []
@@ -230,6 +322,12 @@ def normalize_klines(raw, supply=None):
         if 'market_cap' in k:
             item['market_cap'] = k['market_cap']  # USD
         result.append(item)
+    
+    # 验证完整性
+    integrity = validate_klines_integrity(result)
+    if not integrity['is_complete']:
+        print(f"  ⚠️ K线不完整: 缺失 {integrity['missing_count']} 根，{len(integrity['gaps'])} 个间隙")
+    
     return result
 
 if __name__ == '__main__':
