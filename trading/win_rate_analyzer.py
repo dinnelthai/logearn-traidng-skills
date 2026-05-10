@@ -40,18 +40,45 @@ def split_trades_by_sell_points(
             ...
         ]
     """
+    # 找到第一次市值 >= 门槛的K线索引（全局检查一次）
+    mcap_trigger_index = None
+    if min_swing_high_mcap is not None and supply is not None and supply > 0:
+        for i, k in enumerate(klines):
+            mcap_k = 0
+            if hasattr(k, 'market_cap') and k.market_cap > 0:
+                mcap_k = k.market_cap
+            else:
+                # 如果没有market_cap字段，用价格 * supply 计算
+                mcap_k = (k.high * supply) / 1000
+            
+            if mcap_k >= min_swing_high_mcap:
+                mcap_trigger_index = i
+                break
+    
     trades = []
     remaining_klines = klines
     current_offset = 0  # 当前在原始K线中的偏移量
     
     while len(trades) < max_trades and len(remaining_klines) > 0:
+        # 计算相对于原始K线的触发索引
+        # 如果有触发点，需要转换为相对于 remaining_klines 的索引
+        relative_trigger_index = None
+        if mcap_trigger_index is not None:
+            if mcap_trigger_index >= current_offset:
+                # 触发点在当前窗口内或之后
+                relative_trigger_index = mcap_trigger_index - current_offset
+            else:
+                # 触发点在当前窗口之前，说明已经触发过了
+                relative_trigger_index = 0  # 从第一根K线开始就允许
+        
         # 运行回测
         result = check_single_trade(
             remaining_klines,
             total_capital=total_capital,
             min_market_cap=min_market_cap,
             supply=supply,
-            min_swing_high_mcap=min_swing_high_mcap
+            min_swing_high_mcap=min_swing_high_mcap,
+            mcap_trigger_index=relative_trigger_index
         )
         
         # 如果没有匹配到交易，结束

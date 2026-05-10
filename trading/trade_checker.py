@@ -89,7 +89,8 @@ def check_single_trade(klines: List[Kline],
                        config = None,
                        min_market_cap: float = None,
                        supply: float = None,
-                       min_swing_high_mcap: float = None) -> Dict:
+                       min_swing_high_mcap: float = None,
+                       mcap_trigger_index: int = None) -> Dict:
     """
     检测K线是否符合一次完整交易（买入→卖出）
     
@@ -131,21 +132,8 @@ def check_single_trade(klines: List[Kline],
                 "filter_reason": f"市值未达到{min_market_cap}k（共{original_count}根K线）"
             }
     
-    # 找到第一次市值 >= 门槛的K线索引
-    # 只有从这个索引之后才开始检测波峰和Fib
-    mcap_trigger_index = None
-    if min_swing_high_mcap is not None and supply is not None and supply > 0:
-        for i, k in enumerate(klines):
-            mcap_k = 0
-            if hasattr(k, 'market_cap') and k.market_cap > 0:
-                mcap_k = k.market_cap
-            else:
-                # 如果没有market_cap字段，用价格 * supply 计算
-                mcap_k = (k.high * supply) / 1000
-            
-            if mcap_k >= min_swing_high_mcap:
-                mcap_trigger_index = i
-                break
+    # mcap_trigger_index 由调用方传入（在 split_trades_by_sell_points 中全局检查一次）
+    # 这里直接使用即可
     
     # 初始化 PositionManager（100% 复用）
     position_manager = PositionManager(
