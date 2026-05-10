@@ -131,11 +131,11 @@ def check_single_trade(klines: List[Kline],
                 "filter_reason": f"市值未达到{min_market_cap}k（共{original_count}根K线）"
             }
     
-    # 检查整个K线历史是否达到过波峰市值门槛
-    # 这个检查只做一次，在整个交易开始前
-    swing_high_mcap_triggered = False
+    # 找到第一次市值 >= 门槛的K线索引
+    # 只有从这个索引之后才开始检测波峰和Fib
+    mcap_trigger_index = None
     if min_swing_high_mcap is not None and supply is not None and supply > 0:
-        for k in klines:
+        for i, k in enumerate(klines):
             mcap_k = 0
             if hasattr(k, 'market_cap') and k.market_cap > 0:
                 mcap_k = k.market_cap
@@ -144,7 +144,7 @@ def check_single_trade(klines: List[Kline],
                 mcap_k = (k.high * supply) / 1000
             
             if mcap_k >= min_swing_high_mcap:
-                swing_high_mcap_triggered = True
+                mcap_trigger_index = i
                 break
     
     # 初始化 PositionManager（100% 复用）
@@ -162,7 +162,6 @@ def check_single_trade(klines: List[Kline],
     entry_swing_high = None
     entry_stop_price = None
     fib_sold_tiers = []
-    # swing_high_mcap_triggered 已在上面初始化
     
     # 记录变量
     buy_records = []
@@ -171,6 +170,10 @@ def check_single_trade(klines: List[Kline],
     
     # 逐根K线遍历
     for i in range(len(klines)):
+        # 如果设置了市值门槛，且当前K线索引 < 触发索引，跳过
+        if mcap_trigger_index is not None and i < mcap_trigger_index:
+            continue
+        
         current_klines = klines[:i+1]
         
         # 计算加权均价（100% 复用 PositionManager 逻辑）
@@ -179,6 +182,7 @@ def check_single_trade(klines: List[Kline],
         ) if tiers_bought else None
         
         # 调用核心信号函数（100% 复用）
+        # 注意：不再传递 swing_high_mcap_triggered，因为已经通过索引过滤了
         signal = fib_signal(
             current_klines,
             entry_price=avg_price,
@@ -187,24 +191,13 @@ def check_single_trade(klines: List[Kline],
             skip_ao=False,
             entry_swing_high=entry_swing_high,
             entry_stop_price=entry_stop_price,
-            fib_sold_tiers=fib_sold_tiers,
-            supply=supply,
-            min_swing_high_mcap=min_swing_high_mcap,
-            swing_high_mcap_triggered=swing_high_mcap_triggered
+            fib_sold_tiers=fib_sold_tiers
         )
         
         if not signal:
             continue
         
         action = signal.get("action")
-        
-        # 更新波峰市值触发状态
-        if signal.get("swing_high_mcap_triggered") is not None:
-            swing_high_mcap_triggered = signal.get("swing_high_mcap_triggered")
-        
-        # 跳过市值不足的波峰
-        if action == "swing_high_detected" and signal.get("mcap_threshold_not_met"):
-            continue
         
         # 买入信号
         if action in ["buy_618", "buy_786", "buy_861"]:
