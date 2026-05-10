@@ -105,8 +105,14 @@ def split_trades_by_sell_points(
         # 如果有触发点，需要转换为相对于 remaining_klines 的索引
         relative_trigger_index = None
         if mcap_trigger_index is not None:
-            if mcap_trigger_index >= current_offset:
-                # 触发点在当前窗口内或之后
+            session_end = current_offset + len(remaining_klines) - 1
+            
+            if mcap_trigger_index > session_end:
+                # 触发点在当前 session 之后，跳过这个 session
+                print(f"[DEBUG] Session 跳过：触发点 {mcap_trigger_index} > session 结束 {session_end}")
+                break
+            elif mcap_trigger_index >= current_offset:
+                # 触发点在当前窗口内
                 relative_trigger_index = mcap_trigger_index - current_offset
             else:
                 # 触发点在当前窗口之前，说明已经触发过了
