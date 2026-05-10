@@ -100,10 +100,20 @@ def main():
     if len(sys.argv) < 2:
         print("用法: papertrading <CA地址> [市值门槛]")
         print("示例: papertrading ABC123... 180")
+        print("       papertrading ABC123... 180k")
         sys.exit(1)
     
     ca = sys.argv[1]
-    min_mcap = float(sys.argv[2]) if len(sys.argv) > 2 else 180.0
+    
+    # 解析市值门槛（支持 180 或 180k 格式）
+    if len(sys.argv) > 2:
+        mcap_str = sys.argv[2].lower()
+        if mcap_str.endswith('k'):
+            min_mcap = float(mcap_str[:-1])
+        else:
+            min_mcap = float(mcap_str)
+    else:
+        min_mcap = 180.0
     
     papertrading(ca, min_mcap)
 

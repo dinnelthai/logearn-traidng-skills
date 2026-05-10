@@ -5,14 +5,15 @@
 """
 import sys, os, json, sqlite3, subprocess, time
 
-DB = '/root/ca-backtester/data/backtest.db'
-CACHE = '/root/ca-backtester/cache'
-LOGEARN_KEY = 'sk_3f5eedad86974c0a8680da154b1a8028'
+DB = os.getenv('BACKTEST_DB', '/root/ca-backtester/data/backtest.db')
+CACHE = os.getenv('BACKTEST_CACHE', '/root/ca-backtester/cache')
+LOGEARN_KEY = os.getenv('LOGEARN_API_KEY', 'sk_3f5eedad86974c0a8680da154b1a8028')
+LOGEARN_CLI = os.getenv('LOGEARN_CLI_PATH', '/root/.hermes/skills/logearn/logearn-cli.py')
 
 # ── LogEarn API ─────────────────────────────────────────
 
 def logearn_cmd(cmd_str, *args):
-    cmd = ['python3', '/root/.hermes/skills/logearn/logearn-cli.py', cmd_str] + list(args)
+    cmd = ['python3', LOGEARN_CLI, cmd_str] + list(args)
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=20,
                       env={**os.environ, 'LOGEARN_API_KEY': LOGEARN_KEY})
     try:
