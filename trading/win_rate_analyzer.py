@@ -53,7 +53,33 @@ def split_trades_by_sell_points(
             
             if mcap_k >= min_swing_high_mcap:
                 mcap_trigger_index = i
+                from datetime import datetime, timezone, timedelta
+                trigger_time = datetime.fromtimestamp(k.time, tz=timezone.utc)
+                beijing_tz = timezone(timedelta(hours=8))
+                print(f"\n{'='*80}")
+                print(f"✅ 市值门槛触发点")
+                print(f"{'='*80}")
+                print(f"索引: {mcap_trigger_index}")
+                print(f"时间: {trigger_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
+                print(f"北京: {trigger_time.astimezone(beijing_tz).strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"市值: {mcap_k:.2f}k")
+                print(f"价格: {k.close:.8f}")
+                print(f"{'='*80}\n")
                 break
+        
+        if mcap_trigger_index is None:
+            print(f"\n⚠️ 未找到市值 >= {min_swing_high_mcap}k 的K线")
+            # 找最高市值
+            max_mcap = 0
+            max_index = 0
+            for i, k in enumerate(klines):
+                mcap_k = k.market_cap if hasattr(k, 'market_cap') and k.market_cap > 0 else (k.high * supply) / 1000
+                if mcap_k > max_mcap:
+                    max_mcap = mcap_k
+                    max_index = i
+            from datetime import datetime, timezone
+            max_time = datetime.fromtimestamp(klines[max_index].time, tz=timezone.utc)
+            print(f"最高市值: {max_mcap:.2f}k (索引 {max_index}, 时间 {max_time.strftime('%Y-%m-%d %H:%M:%S')} UTC)\n")
     
     trades = []
     remaining_klines = klines
