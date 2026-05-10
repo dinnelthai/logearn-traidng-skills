@@ -87,7 +87,9 @@ def filter_klines_by_market_cap(
 def check_single_trade(klines: List[Kline], 
                        total_capital: float = 2.0,
                        config = None,
-                       min_market_cap: float = None) -> Dict:
+                       min_market_cap: float = None,
+                       supply: float = None,
+                       min_swing_high_mcap: float = None) -> Dict:
     """
     检测K线是否符合一次完整交易（买入→卖出）
     
@@ -101,6 +103,8 @@ def check_single_trade(klines: List[Kline],
         total_capital: 总资金（SOL）
         config: 交易配置
         min_market_cap: 最小市值阈值（单位：k），None表示不过滤
+        supply: 代币总量（用于计算波峰市值）
+        min_swing_high_mcap: 波峰市值门槛（单位：k USD），None表示不启用
     
     Returns:
         Dict: {
@@ -142,6 +146,7 @@ def check_single_trade(klines: List[Kline],
     entry_swing_high = None
     entry_stop_price = None
     fib_sold_tiers = []
+    swing_high_mcap_triggered = False  # 波峰市值门槛触发状态
     
     # 记录变量
     buy_records = []
@@ -166,13 +171,24 @@ def check_single_trade(klines: List[Kline],
             skip_ao=False,
             entry_swing_high=entry_swing_high,
             entry_stop_price=entry_stop_price,
-            fib_sold_tiers=fib_sold_tiers
+            fib_sold_tiers=fib_sold_tiers,
+            supply=supply,
+            min_swing_high_mcap=min_swing_high_mcap,
+            swing_high_mcap_triggered=swing_high_mcap_triggered
         )
         
         if not signal:
             continue
         
         action = signal.get("action")
+        
+        # 更新波峰市值触发状态
+        if signal.get("swing_high_mcap_triggered") is not None:
+            swing_high_mcap_triggered = signal.get("swing_high_mcap_triggered")
+        
+        # 跳过市值不足的波峰
+        if action == "swing_high_detected" and signal.get("mcap_threshold_not_met"):
+            continue
         
         # 买入信号
         if action in ["buy_618", "buy_786", "buy_861"]:
@@ -388,7 +404,9 @@ def _calculate_profit_multi_sell(entry_prices: Dict[str, float],
 def check_single_trade_from_raw(raw_klines: List[dict],
                                 total_capital: float = 2.0,
                                 config = None,
-                                min_market_cap: float = None) -> Dict:
+                                min_market_cap: float = None,
+                                supply: float = None,
+                                min_swing_high_mcap: float = None) -> Dict:
     """
     从原始K线数据检测交易
     
@@ -397,12 +415,14 @@ def check_single_trade_from_raw(raw_klines: List[dict],
         total_capital: 总资金
         config: 交易配置
         min_market_cap: 最小市值阈值（单位：k），None表示不过滤
+        supply: 代币总量
+        min_swing_high_mcap: 波峰市值门槛（单位：k USD），None表示不启用
     
     Returns:
         Dict: 检测结果
     """
     klines = parse_klines(raw_klines)
-    return check_single_trade(klines, total_capital, config, min_market_cap)
+    return check_single_trade(klines, total_capital, config, min_market_cap, supply, min_swing_high_mcap)
 
 
 def print_trade_result(result: Dict):

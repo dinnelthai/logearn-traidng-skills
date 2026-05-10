@@ -440,7 +440,9 @@ def check_penetration_with_tolerance(latest_low: float, latest_close: float, lev
 def fib_signal(klines: list[Kline], entry_price: float = None,
                 tiers_bought: list = None, pending_tiers: list = None,
                 skip_ao: bool = False, entry_swing_high: float = None,
-                entry_stop_price: float = None, fib_sold_tiers: list = None) -> dict:
+                entry_stop_price: float = None, fib_sold_tiers: list = None,
+                supply: float = None, min_swing_high_mcap: float = None,
+                swing_high_mcap_triggered: bool = False) -> dict:
     """
     根据最新收盘价，判断是否触发买入/止损/卖出
     entry_price: 持仓均价，用于 AO<50k 时的收益率判断
@@ -449,12 +451,19 @@ def fib_signal(klines: list[Kline], entry_price: float = None,
     entry_swing_high: 买入时锁定的波峰（持仓期间不允许下移止损）
     entry_stop_price: 买入时锁定的止损价（持仓期间不允许下移）
     fib_sold_tiers: 已通过 Fib 卖出的档位列表
+    supply: 代币总量（用于计算波峰市值）
+    min_swing_high_mcap: 波峰市值门槛（单位k USD），None表示不启用
+    swing_high_mcap_triggered: 是否已有波峰达到市值门槛
     返回:
       - 止损触发: {"action": "stop", "price": float, "level": float}
       - AO卖出触发: {"action": "sell", ...}
       - Fib卖出触发: {"action": "fib_sell", "tier": str, "percentage": float, ...}
       - 买点触发（单档）: {"action": "buy_618"|"buy_786"|"buy_861", "price": float, "level": float,
-                          "pending": [剩余待买档位], "swing_high": float, "stop_price": float}
+                          "pending": [剩余待买档位], "swing_high": float, "stop_price": float,
+                          "swing_high_mcap_triggered": bool, "swing_high_mcap_k": float}
+      - 波峰市值不足: {"action": "swing_high_detected", "swing_high": float, "swing_high_price": float,
+                      "swing_high_mcap_k": float, "mcap_threshold_not_met": True,
+                      "swing_high_mcap_triggered": False}
       - 观察: {"action": "watch", "price": float, "levels": dict,
                "penetrated": [本次新穿透档位], "pending": [所有待买档位]}
     """
@@ -465,6 +474,28 @@ def fib_signal(klines: list[Kline], entry_price: float = None,
     levels = fib_entry_levels(swing_high, swing_low)
     latest_close = klines[-1].close
     latest_low   = klines[-1].low
+    
+    # 波峰市值门槛检查（仅在空仓且启用门槛时检查）
+    if (min_swing_high_mcap is not None and supply is not None and supply > 0 
+        and not tiers_bought):  # 仅空仓时检查
+        # 计算波峰市值（单位k USD）
+        swing_high_mcap_k = (swing_high * supply) / 1000
+        
+        # 如果还没有触发过，且波峰市值 < 门槛
+        if not swing_high_mcap_triggered and swing_high_mcap_k < min_swing_high_mcap:
+            # 检测到波峰但市值不足，不启动买入
+            return {
+                "action": "swing_high_detected",
+                "swing_high": swing_high,
+                "swing_high_price": swing_high,
+                "swing_high_mcap_k": swing_high_mcap_k,
+                "mcap_threshold_not_met": True,
+                "swing_high_mcap_triggered": False
+            }
+        
+        # 如果波峰市值 >= 门槛，标记为已触发
+        if swing_high_mcap_k >= min_swing_high_mcap:
+            swing_high_mcap_triggered = True
 
     # AO 卖出信号优先（持仓中才判断，空仓跳过）
     if not skip_ao:
@@ -523,7 +554,7 @@ def fib_signal(klines: list[Kline], entry_price: float = None,
                 next_price = levels.get(next_tier)
                 # 使用动态容差检查穿透
                 if next_price and check_penetration_with_tolerance(latest_low, latest_close, next_price):
-                    return {
+                    result = {
                         "action": next_tier,
                         "price": next_price,
                         "level": next_price,
@@ -531,7 +562,11 @@ def fib_signal(klines: list[Kline], entry_price: float = None,
                         "pending": remaining_pending[1:],
                         "swing_high": swing_high,
                         "stop_price": stop_price,
+                        "swing_high_mcap_triggered": swing_high_mcap_triggered,
                     }
+                    if supply and min_swing_high_mcap:
+                        result["swing_high_mcap_k"] = (swing_high * supply) / 1000
+                    return result
                 else:
                     # 价格已反弹，不在穿透位，pending 保留
                     return {
@@ -566,7 +601,7 @@ def fib_signal(klines: list[Kline], entry_price: float = None,
     # 其余档位留给后续轮询
     remaining_pending = all_pending_sorted[1:]
 
-    return {
+    result = {
         "action": next_tier,
         "price": next_price,
         "level": next_price,
@@ -574,7 +609,11 @@ def fib_signal(klines: list[Kline], entry_price: float = None,
         "pending": remaining_pending,
         "swing_high": swing_high,      # 买入时的波峰（用于锁定止损）
         "stop_price": stop_price,      # 买入时的止损价（用于锁定止损）
+        "swing_high_mcap_triggered": swing_high_mcap_triggered,
     }
+    if supply and min_swing_high_mcap:
+        result["swing_high_mcap_k"] = (swing_high * supply) / 1000
+    return result
 
 
 def fib_signal_report(klines: list[Kline]) -> str:

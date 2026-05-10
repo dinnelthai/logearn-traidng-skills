@@ -214,7 +214,7 @@ def fetch_klines(ca):
     return raw or []
 
 def normalize_klines(raw, supply=None):
-    """raw_klines → list[dict]，market_cap单位USD"""
+    """raw_klines → list[dict]，market_cap单位k（千美元）"""
     result = []
     for k in raw:
         item = {
