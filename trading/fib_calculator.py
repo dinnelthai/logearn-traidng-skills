@@ -480,6 +480,12 @@ def fib_signal(
     levels = fib_entry_levels(swing_high, swing_low)
     latest_close = klines[-1].close
     latest_low   = klines[-1].low
+    
+    # 调试输出：显示每次调用的波峰信息
+    if len(klines) >= 50 and len(klines) <= 100:
+        from datetime import datetime, timezone
+        k_time = datetime.fromtimestamp(klines[-1].time, tz=timezone.utc)
+        print(f"[fib_signal] K线数:{len(klines)} | 时间:{k_time.strftime('%m-%d %H:%M')} | swing_high:{swing_high:.8f} | 档位:{levels}")
 
     # AO 卖出信号优先（持仓中才判断，空仓跳过）
     if not skip_ao:
