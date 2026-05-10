@@ -32,14 +32,15 @@ def run_backtest(ca):
     info = get_token_info(ca)
     symbol = info['symbol'] if info else 'UNKNOWN'
 
-    # 回测：min_market_cap=180k USD（180,000）
-    min_market_cap = 180.0  # 180k
+    # 回测：min_swing_high_mcap=180k USD（波峰市值门槛）
+    min_swing_high_mcap = 180.0  # 180k
     result = analyze_token_trades(
         ca=ca,
         raw_klines=klines,
         symbol=symbol,
         total_capital=2.0,
-        min_market_cap=min_market_cap,
+        supply=info.get('total_supply') if info else None,
+        min_swing_high_mcap=min_swing_high_mcap,
         max_trades=5
     )
 
