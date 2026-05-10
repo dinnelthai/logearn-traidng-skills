@@ -46,8 +46,8 @@ def split_trades_by_sell_points(
             if hasattr(k, 'market_cap') and k.market_cap > 0:
                 mcap_k = k.market_cap
             else:
-                # 如果没有market_cap字段，用价格 * supply 计算
-                mcap_k = (k.high * supply) / 1000
+                # 如果没有market_cap字段，用收盘价 * supply 计算（与 closeU 一致）
+                mcap_k = (k.close * supply) / 1000
             
             if mcap_k >= min_swing_high_mcap:
                 mcap_trigger_index = i
@@ -71,7 +71,7 @@ def split_trades_by_sell_points(
             max_mcap = 0
             max_index = 0
             for i, k in enumerate(klines):
-                mcap_k = k.market_cap if hasattr(k, 'market_cap') and k.market_cap > 0 else (k.high * supply) / 1000
+                mcap_k = k.market_cap if hasattr(k, 'market_cap') and k.market_cap > 0 else (k.close * supply) / 1000
                 if mcap_k > max_mcap:
                     max_mcap = mcap_k
                     max_index = i
