@@ -509,16 +509,13 @@ def fib_signal(
         if fib_sell:
             return fib_sell
 
-    # 止损价逻辑：持仓期间始终使用买入时锁定的止损价（不随后续波峰更新）
+    # 止损检查：只在持仓时才检查止损
+    # 空仓时不应该触发止损，应该继续检测买入信号
     if tiers_bought and entry_stop_price is not None:
         stop_price = entry_stop_price
-    else:
-        # 空仓：使用当前计算的止损价
-        stop_price = levels.get("stop", float("inf"))
-    
-    # 止损优先：日内低点穿透止损价 → 直接止损
-    if latest_low <= stop_price:
-        return {"action": "stop", "price": latest_low, "level": stop_price}
+        # 止损优先：日内低点穿透止损价 → 直接止损
+        if latest_low <= stop_price:
+            return {"action": "stop", "price": latest_low, "level": stop_price}
 
     # 找出本次新穿透的档位（排除已持仓 + 已 pending 的）
     all_tiers = [label for label, _ in BUY_RATIOS]  # ['buy_618', 'buy_786', 'buy_861']
