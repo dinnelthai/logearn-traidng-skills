@@ -14,23 +14,24 @@ from .config import DEFAULT_CONFIG
 class SingleTradeBot:
     """单次交易机器人"""
     
-    def __init__(self, wallet: str, ca: str, total_capital: float = 2.0, 
+    def __init__(self, ca: str, total_capital: float = 2.0, 
                  logearn_cli_path: str = None):
         """
         初始化单次交易机器人
         
         Args:
-            wallet: 钱包地址
             ca: 代币地址
             total_capital: 总资金（SOL）
             logearn_cli_path: LogEarn CLI路径
+        
+        Note:
+            LogEarn skill与token绑定，不需要手动指定钱包
         """
-        self.wallet = wallet
         self.ca = ca
         self.total_capital = total_capital
         
         # 初始化交易执行器
-        self.executor = TradeExecutor(wallet, logearn_cli_path)
+        self.executor = TradeExecutor(logearn_cli_path)
         
         # 初始化仓位管理器
         self.position_manager = PositionManager(
@@ -60,7 +61,6 @@ class SingleTradeBot:
             check_interval: 检查间隔（秒）
         """
         print(f"🤖 单次交易机器人启动")
-        print(f"钱包: {self.wallet}")
         print(f"代币: {self.ca}")
         print(f"总资金: {self.total_capital} SOL")
         print(f"检查间隔: {check_interval}秒")
@@ -223,44 +223,44 @@ class SingleTradeBot:
             print(f"   ❌ 卖出失败: {result.message}")
 
 
-def run_single_trade(wallet: str, ca: str, klines_provider, 
+def run_single_trade(ca: str, klines_provider, 
                      total_capital: float = 2.0, check_interval: int = 60):
     """
     运行单次交易
     
     Args:
-        wallet: 钱包地址
         ca: 代币地址
         klines_provider: K线数据提供函数
         total_capital: 总资金（SOL）
         check_interval: 检查间隔（秒）
     
+    Note:
+        LogEarn skill与token绑定，不需要手动指定钱包
+    
     Example:
         def get_klines():
-            # 从API获取K线数据
+            # 从 API获取K线数据
             return fetch_klines(ca)
         
         run_single_trade(
-            wallet="你的钱包地址",
             ca="代币地址",
             klines_provider=get_klines,
             total_capital=2.0,
             check_interval=60
         )
     """
-    bot = SingleTradeBot(wallet, ca, total_capital)
+    bot = SingleTradeBot(ca, total_capital)
     bot.run(klines_provider, check_interval)
 
 
 if __name__ == "__main__":
     import sys
     
-    if len(sys.argv) < 3:
-        print("用法: python single_trade_bot.py <钱包地址> <代币地址>")
+    if len(sys.argv) < 2:
+        print("用法: python single_trade_bot.py <代币地址>")
         sys.exit(1)
     
-    wallet = sys.argv[1]
-    ca = sys.argv[2]
+    ca = sys.argv[1]
     
     # 示例：需要实现 get_klines 函数
     def get_klines():
@@ -268,4 +268,4 @@ if __name__ == "__main__":
         # 例如：从 GMGN 或其他数据源获取
         raise NotImplementedError("请实现 get_klines 函数")
     
-    run_single_trade(wallet, ca, get_klines)
+    run_single_trade(ca, get_klines)

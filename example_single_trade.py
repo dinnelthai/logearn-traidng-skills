@@ -40,14 +40,14 @@ def get_klines_from_gmgn(ca: str):
 def main():
     """主函数"""
     # 从环境变量获取配置
-    wallet = os.getenv("WALLET_ADDRESS")
     ca = os.getenv("TOKEN_CA")
     
-    if not wallet or not ca:
+    if not ca:
         print("❌ 请设置环境变量:")
-        print("   export WALLET_ADDRESS='你的钱包地址'")
         print("   export TOKEN_CA='代币地址'")
         print("   export LOGEARN_API_KEY='你的API Key'")
+        print("")
+        print("注意: LogEarn skill与token绑定，不需要指定钱包地址")
         return
     
     # 配置参数
@@ -57,7 +57,6 @@ def main():
     print("="*80)
     print("🤖 单次交易机器人")
     print("="*80)
-    print(f"钱包地址: {wallet}")
     print(f"代币地址: {ca}")
     print(f"总资金: {total_capital} SOL")
     print(f"检查间隔: {check_interval}秒")
@@ -71,7 +70,6 @@ def main():
     # 运行单次交易
     try:
         run_single_trade(
-            wallet=wallet,
             ca=ca,
             klines_provider=klines_provider,
             total_capital=total_capital,
