@@ -516,6 +516,9 @@ def fib_signal(
         # 止损优先：日内低点穿透止损价 → 直接止损
         if latest_low <= stop_price:
             return {"action": "stop", "price": latest_low, "level": stop_price}
+    else:
+        # 空仓时计算当前止损价（用于买入信号返回）
+        stop_price = levels.get("stop", 0)
 
     # 找出本次新穿透的档位（排除已持仓 + 已 pending 的）
     all_tiers = [label for label, _ in BUY_RATIOS]  # ['buy_618', 'buy_786', 'buy_861']
