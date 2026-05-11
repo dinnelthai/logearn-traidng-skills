@@ -53,13 +53,31 @@ class TestRealData(unittest.TestCase):
         print(f"  卖出点数: {len(result['sell_points'])}")
         
         if result['matched']:
+            from datetime import datetime, timezone, timedelta
+            
             print(f"\n买入点:")
             for i, bp in enumerate(result['buy_points'], 1):
-                print(f"  {i}. {bp['tier']}: {bp['price']:.8f} @ {bp['kline_index']}")
+                kline_idx = bp['kline_index']
+                kline = self.raw_klines[kline_idx]
+                k_time = datetime.fromtimestamp(kline['time'], tz=timezone.utc)
+                k_time_beijing = k_time.astimezone(timezone(timedelta(hours=8)))
+                print(f"  {i}. {bp['tier']}: {bp['price']:.8f}")
+                print(f"     时间(UTC): {k_time.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+                print(f"     时间(北京): {k_time_beijing.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"     市值: {kline['market_cap']:.2f}k USD")
+                print(f"     K线索引: {kline_idx}")
             
             print(f"\n卖出点:")
             for i, sp in enumerate(result['sell_points'], 1):
-                print(f"  {i}. {sp['type']}: {sp['price']:.8f} ({sp['percentage']*100:.0f}%) @ {sp['kline_index']}")
+                kline_idx = sp['kline_index']
+                kline = self.raw_klines[kline_idx]
+                k_time = datetime.fromtimestamp(kline['time'], tz=timezone.utc)
+                k_time_beijing = k_time.astimezone(timezone(timedelta(hours=8)))
+                print(f"  {i}. {sp['type']}: {sp['price']:.8f} ({sp['percentage']*100:.0f}%)")
+                print(f"     时间(UTC): {k_time.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+                print(f"     时间(北京): {k_time_beijing.strftime('%Y-%m-%d %H:%M:%S')}")
+                print(f"     市值: {kline['market_cap']:.2f}k USD")
+                print(f"     K线索引: {kline_idx}")
             
             print(f"\n利润:")
             profit = result['profit']
