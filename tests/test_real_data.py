@@ -99,7 +99,7 @@ class TestRealData(unittest.TestCase):
         print("\n测试市值门槛过滤...")
         
         # 测试不同的市值门槛
-        thresholds = [10.0, 50.0, 100.0]
+        thresholds = [10.0, 50.0, 100.0, 180.0]
         
         for threshold in thresholds:
             # 筛选达到市值门槛的K线
@@ -116,6 +116,19 @@ class TestRealData(unittest.TestCase):
             print(f"    matched: {result['matched']}")
             print(f"    买入点: {len(result['buy_points'])}")
             print(f"    卖出点: {len(result['sell_points'])}")
+            
+            # 如果180k门槛有交易，显示详情
+            if threshold == 180.0 and result['matched']:
+                from datetime import datetime, timezone, timedelta
+                print(f"    买入详情:")
+                for i, bp in enumerate(result['buy_points'], 1):
+                    kline_idx = bp['kline_index']
+                    kline = filtered_klines[kline_idx]
+                    k_time = datetime.fromtimestamp(kline['time'], tz=timezone.utc)
+                    k_time_beijing = k_time.astimezone(timezone(timedelta(hours=8)))
+                    print(f"      {i}. {bp['tier']}: {bp['price']:.8f}")
+                    print(f"         时间(北京): {k_time_beijing.strftime('%Y-%m-%d %H:%M:%S')}")
+                    print(f"         市值: {kline['market_cap']:.2f}k USD")
         
         print("\n✅ 市值门槛测试完成")
 
