@@ -63,15 +63,13 @@ export TOKEN_CA="代币地址"  # 可选
 #### 方式A: Fibonacci交易（5分钟K线）
 
 ```python
-from trading import run_single_trade, get_klines_raw
+from trading import run_fibonacci_trade
 
-def klines_provider():
-    return get_klines_raw("代币地址", interval='5m', page_size=200)
-
-run_single_trade(
+# 自动使用K线缓存+增量更新
+run_fibonacci_trade(
     ca="代币地址",
-    klines_provider=klines_provider,
-    total_capital=2.0
+    total_capital=2.0,
+    check_interval=60
 )
 ```
 
@@ -102,14 +100,14 @@ python example_rsi_dca.py
 
 ## 📚 对外公开接口
 
-本项目只对外暴露**2个核心交易接口**，K线获取由内部自动处理。
+本项目只对外暴露**2个核心交易接口**，K线获取、缓存等由内部自动处理。
 
 ### 1. Fibonacci交易
 
 ```python
 from trading import run_fibonacci_trade
 
-# 运行Fibonacci交易（K线自动获取）
+# 运行Fibonacci交易（K线自动缓存+增量更新）
 run_fibonacci_trade(
     ca="代币地址",
     total_capital=2.0,      # 总资金（SOL）
@@ -118,10 +116,11 @@ run_fibonacci_trade(
 ```
 
 **特点**：
-- 自动获取5分钟K线
+- 自动获取5分钟K线（首次全量，后续增量）
 - Fibonacci回撤买入（61.8%, 78.6%, 86.1%）
 - AO卖出信号
 - 全部卖出后自动停止
+- 首次获取全量历史K线，后续减少90%+ API调用
 
 ### 2. RSI定投
 
