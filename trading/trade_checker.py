@@ -397,9 +397,7 @@ def _calculate_profit_multi_sell(entry_prices: Dict[str, float],
 def check_single_trade_from_raw(raw_klines: List[dict],
                                 total_capital: float = 2.0,
                                 config = None,
-                                min_market_cap: float = None,
-                                supply: float = None,
-                                min_swing_high_mcap: float = None) -> Dict:
+                                mcap_trigger_index: int = None) -> Dict:
     """
     从原始K线数据检测交易
     
@@ -407,15 +405,13 @@ def check_single_trade_from_raw(raw_klines: List[dict],
         raw_klines: 原始K线数据（可包含market_cap字段）
         total_capital: 总资金
         config: 交易配置
-        min_market_cap: 最小市值阈值（单位：k），None表示不过滤
-        supply: 代币总量
-        min_swing_high_mcap: 波峰市值门槛（单位：k USD），None表示不启用
+        mcap_trigger_index: 市值触发点索引，None表示不启用
     
     Returns:
         Dict: 检测结果
     """
     klines = parse_klines(raw_klines)
-    return check_single_trade(klines, total_capital, config, min_market_cap, supply, min_swing_high_mcap)
+    return check_single_trade(klines, total_capital, config, mcap_trigger_index)
 
 
 def print_trade_result(result: Dict):
