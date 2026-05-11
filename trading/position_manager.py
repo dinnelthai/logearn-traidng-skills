@@ -14,7 +14,7 @@ class PositionManager:
                  max_position_ratio: float = 0.30,
                  min_position_sol: float = 0.005,
                  trading_start_hour: int = 0,
-                 trading_end_hour: int = 13):
+                 trading_end_hour: int = 24):
         """
         初始化仓位管理器
         
@@ -22,7 +22,7 @@ class PositionManager:
             max_position_ratio: 单币最大仓位比例（默认30%）
             min_position_sol: 最小买入金额（默认0.005 SOL）
             trading_start_hour: 交易开始时间（北京时间，默认0点）
-            trading_end_hour: 交易结束时间（北京时间，默认13点）
+            trading_end_hour: 交易结束时间（北京时间，默认24点=全天交易）
         """
         self.max_position_ratio = max_position_ratio
         self.min_position_sol = min_position_sol

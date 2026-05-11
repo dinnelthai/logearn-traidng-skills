@@ -88,8 +88,9 @@ class PositionConfig:
     tier_sizes: Dict[str, float] = None
     
     # 交易时间限制（北京时间）
+    # 设置为 24 表示全天交易，不受时间限制
     trading_start_hour: int = 0
-    trading_end_hour: int = 13
+    trading_end_hour: int = 24  # 24 = 全天交易（关闭时间窗口限制）
     
     def __post_init__(self):
         if self.tier_sizes is None:
