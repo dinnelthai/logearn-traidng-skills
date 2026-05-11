@@ -35,7 +35,7 @@ def get_token_info(ca):
 
 def logearn_kline(ca, interval=300, size=96, end=None):
     cmd = [
-        'python3', '/root/.hermes/skills/logearn/logearn-cli.py',
+        'python3', LOGEARN_CLI,
         'log-get-kline',
         '--chain', '3', '--token', ca,
         '--interval', str(interval), '--size', str(size),
@@ -45,8 +45,27 @@ def logearn_kline(ca, interval=300, size=96, end=None):
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=20,
                        env={**os.environ, 'LOGEARN_API_KEY': LOGEARN_KEY})
     try:
-        return json.loads(r.stdout)
-    except:
+        result = json.loads(r.stdout)
+        
+        # 检查是否为空或错误
+        if not result:
+            if r.stderr:
+                print(f"  ⚠️ LogEarn CLI stderr: {r.stderr[:200]}")
+            return []
+        
+        # 调试：检查返回数据格式（只在第一次调用时）
+        if len(result) > 0 and isinstance(result[0], dict):
+            first_k = result[0]
+            if 'time' not in first_k or 'close' not in first_k:
+                print(f"  ⚠️ K线数据格式异常: {list(first_k.keys())[:5]}")
+        
+        return result
+    except Exception as e:
+        print(f"  ⚠️ 解析K线数据失败: {e}")
+        if r.stdout:
+            print(f"  stdout前200字符: {r.stdout[:200]}")
+        if r.stderr:
+            print(f"  stderr: {r.stderr[:200]}")
         return []
 
 def fetch_logearn(ca):
@@ -226,15 +245,33 @@ def fetch_gmgn(ca):
             '--resolution', '5m', '--to', str(current_to), '--raw'
         ], capture_output=True, text=True, timeout=20)
         try:
-            lst = json.loads(r.stdout).get('list', [])
-        except:
-            break
-        if not lst:
-            break
-        all_klines.extend(lst)
-        oldest = lst[0]['time'] // 1000
-        print(f"    拉到 {len(lst)} 条，最早 {oldest}")
-        if len(lst) < 100:
+            result = json.loads(r.stdout)
+            
+            # 检查是否为空或错误
+            if not result:
+                if r.stderr:
+                    print(f"  ⚠️ LogEarn CLI stderr: {r.stderr[:200]}")
+                return []
+            
+            # 调试：检查返回数据格式
+            if len(result) > 0 and isinstance(result[0], dict):
+                first_k = result[0]
+                # 检查是否有必需字段
+                if 'time' not in first_k or 'close' not in first_k:
+                    print(f"  ⚠️ K线数据格式异常: {list(first_k.keys())[:5]}")
+            
+            all_klines.extend(result)
+        except Exception as e:
+            print(f"  ⚠️ 解析K线数据失败: {e}")
+            if r.stdout:
+                print(f"  stdout: {r.stdout[:200]}")
+            if r.stderr:
+                print(f"  stderr: {r.stderr[:200]}")
+            return []
+        
+        oldest = result[0]['time'] // 1000
+        print(f"    拉到 {len(result)} 条，最早 {oldest}")
+        if len(result) < 100:
             break
         current_to = oldest - 300
 
