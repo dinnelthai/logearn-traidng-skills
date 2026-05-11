@@ -9,12 +9,9 @@
 ```
 logearn-traidng-skills/
 ├── trading/          # 核心交易模块
-├── backtester/       # 回测模块
 ├── tests/            # 测试文件
-├── examples/         # 使用示例
-├── diagnostics/      # 诊断工具
 ├── docs/             # 文档
-└── papertrading.py   # 纸上交易入口
+└── executor.py       # 真实交易入口
 ```
 
 ---
@@ -48,11 +45,8 @@ export LOGEARN_API_KEY="your_api_key"
 ### 3. 使用
 
 ```bash
-# 纸上交易（回测）
-papertrading <CA地址> [市值门槛]
-
-# 示例
-papertrading HSznAnNhSFgyRWiZh4m7pBmtjHsSLi4Dbmjp18zppump 180k
+# 真实交易
+python trading/executor.py <CA地址>
 ```
 
 ---
@@ -82,56 +76,21 @@ papertrading HSznAnNhSFgyRWiZh4m7pBmtjHsSLi4Dbmjp18zppump 180k
 
 ## 📝 使用示例
 
-### 命令行使用
-
-```bash
-# 默认门槛 180k
-papertrading <CA地址>
-
-# 自定义门槛
-papertrading <CA地址> 200k
-
-# 不启用门槛
-papertrading <CA地址> 0
-```
-
 ### Python 调用
 
 ```python
-from papertrading import papertrading
+from trading.executor import execute_trade
 
-# 运行回测
-result = papertrading(
+# 执行真实交易
+result = execute_trade(
     ca="你的CA地址",
     min_swing_high_mcap=180.0  # 180k USD
 )
 
 # 查看结果
 if result:
-    print(f"交易次数: {len(result['trades'])}")
-    print(f"胜率: {result['win_rate']*100:.1f}%")
-    print(f"平均收益: {result['avg_profit_rate']*100:.2f}%")
-```
-
-### 高级用法
-
-```python
-from trading.win_rate_analyzer import analyze_token_trades
-from backtester.fetch_klines import get_token_info, fetch_klines
-
-# 获取数据
-info = get_token_info(ca)
-klines = fetch_klines(ca)
-
-# 运行分析（双重市值过滤）
-result = analyze_token_trades(
-    ca=ca,
-    raw_klines=klines,
-    supply=info['total_supply'],
-    min_market_cap=180.0,         # K线过滤
-    min_swing_high_mcap=180.0,    # 波峰门槛
-    max_trades=5
-)
+    print(f"交易状态: {result['status']}")
+    print(f"买入价格: {result['buy_price']}")
 ```
 
 ---
@@ -141,12 +100,6 @@ result = analyze_token_trades(
 ```bash
 # 运行所有测试
 ./run_tests.sh
-
-# 波峰市值门槛测试
-python tests/test_swing_high_mcap_filter.py
-
-# 市值过滤测试
-python tests/test_filter_logic.py
 ```
 
 ---
@@ -163,17 +116,15 @@ python tests/test_filter_logic.py
 
 ## 🎯 核心特性
 
-✅ Fibonacci 回撤买入/卖出  
-✅ AO (Awesome Oscillator) 卖出信号  
-✅ 分档买入，分批卖出  
-✅ 仓位管理  
-✅ 止损机制  
-✅ K线市值过滤  
-✅ 波峰市值门槛 ⭐  
-✅ 买卖周期重置  
-✅ 多次交易分析  
-✅ 胜率统计  
-✅ HTML报告生成  
+✅ Fibonacci 回撤买入/卖出
+✅ AO (Awesome Oscillator) 卖出信号
+✅ 分档买入，分批卖出
+✅ 仓位管理
+✅ 止损机制
+✅ K线市值过滤
+✅ 波峰市值门槛 ⭐
+✅ 买卖周期重置
+✅ 真实交易执行  
 
 ---
 
@@ -187,12 +138,6 @@ export LOGEARN_CLI_PATH="$HOME/.hermes/skills/logearn/logearn-cli.py"
 
 # LogEarn API Key（必须）
 export LOGEARN_API_KEY="your_api_key"
-
-# 数据库路径（可选）
-export BACKTEST_DB="$HOME/backtest/data/backtest.db"
-
-# 缓存路径（可选）
-export BACKTEST_CACHE="$HOME/backtest/cache"
 ```
 
 ### 交易配置
@@ -216,19 +161,12 @@ config = TradingConfig(
 │   ├── position_manager.py
 │   ├── trade_checker.py
 │   ├── win_rate_analyzer.py
+│   ├── executor.py
 │   └── config.py
 │
-├── backtester/       # 回测工具
-│   ├── fetch_klines.py
-│   ├── backtest.py
-│   └── run_backtest.py
-│
 ├── tests/            # 测试文件
-├── examples/         # 使用示例
-├── diagnostics/      # 诊断工具
 ├── docs/             # 文档
 │
-├── papertrading.py   # 纸上交易入口
 ├── setup.py          # 安装配置
 └── README.md         # 本文件
 ```
