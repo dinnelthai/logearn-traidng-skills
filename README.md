@@ -1,6 +1,14 @@
 # LogEarn Trading Skills
 
-基于 Fibonacci 回撤 + AO (Awesome Oscillator) 的 Solana 代币交易策略模块。
+基于 Fibonacci 回撤 + RSI 的 Solana 代币交易策略模块。
+
+## ✨ 核心功能
+
+1. **Fibonacci交易** - 基于Fibonacci回撤的自动化交易（5分钟K线）
+2. **RSI定投** - 基于RSI指标的智能定投策略（1小时K线）
+3. **统一K线服务** - 支持多种周期的K线数据获取
+4. **技术指标** - RSI、Fibonacci、AO等指标计算
+5. **交易执行** - 自动买入、卖出、持仓管理
 
 ---
 
@@ -8,10 +16,22 @@
 
 ```
 logearn-traidng-skills/
-├── trading/          # 核心交易模块
-├── tests/            # 测试文件
-├── docs/             # 文档
-└── executor.py       # 真实交易入口
+├── trading/                    # 核心交易模块
+│   ├── kline_service.py       # 统一K线服务
+│   ├── indicators.py          # 技术指标（RSI等）
+│   ├── rsi_dca_bot.py         # RSI定投机器人
+│   ├── single_trade_bot.py    # Fibonacci交易机器人
+│   ├── executor.py            # 交易执行器
+│   └── fib_calculator.py      # Fibonacci计算
+├── docs/                       # 文档
+│   ├── API_USAGE.md           # 对外接口使用指南
+│   ├── KLINE_SERVICE_GUIDE.md # K线服务指南
+│   ├── RSI_DCA_GUIDE.md       # RSI定投指南
+│   └── SINGLE_TRADE_GUIDE.md  # 单次交易指南
+├── tests/                      # 测试文件
+├── example_single_trade.py     # Fibonacci交易示例
+├── example_rsi_dca.py         # RSI定投示例
+└── QUICK_START.md             # 快速开始
 ```
 
 ---
@@ -21,66 +41,163 @@ logearn-traidng-skills/
 ### 1. 安装
 
 ```bash
-# 克隆仓库
+# 从GitHub安装最新版本
+pip install git+https://github.com/dinnelthai/logearn-traidng-skills.git@release/v0.1.0
+
+# 或克隆后安装
 git clone https://github.com/dinnelthai/logearn-traidng-skills.git
 cd logearn-traidng-skills
-
-# 安装为 skills
+git checkout release/v0.1.0
 pip install -e .
 ```
 
-### 2. 配置 LogEarn
+### 2. 设置环境变量
 
 ```bash
-# 安装 LogEarn Skills
-npx skills add logearn/logearn-skills
-
-# 设置环境变量
-export LOGEARN_CLI_PATH="$HOME/.hermes/skills/logearn/logearn-cli.py"
-export LOGEARN_API_KEY="your_api_key"
+export LOGEARN_API_KEY="你的API Key"
+export TOKEN_CA="代币地址"  # 可选
 ```
-
-详细配置请查看 [SETUP_LOGEARN.md](SETUP_LOGEARN.md)
 
 ### 3. 使用
 
+#### 方式A: Fibonacci交易（5分钟K线）
+
+```python
+from trading import run_single_trade, get_klines_raw
+
+def klines_provider():
+    return get_klines_raw("代币地址", interval='5m', page_size=200)
+
+run_single_trade(
+    ca="代币地址",
+    klines_provider=klines_provider,
+    total_capital=2.0
+)
+```
+
+#### 方式B: RSI定投（1小时K线）
+
+```python
+from trading import run_rsi_dca
+
+run_rsi_dca(
+    ca="代币地址",
+    dca_amount=0.1,
+    max_buy_count=10,
+    interval='1h'
+)
+```
+
+#### 方式C: 命令行运行
+
 ```bash
-# 真实交易
-python trading/executor.py <CA地址>
+# Fibonacci交易
+python example_fibonacci_trade.py
+
+# RSI定投
+python example_rsi_dca.py
 ```
 
 ---
 
-## 📊 核心功能
+## 📚 对外公开接口
 
-### Fibonacci 回撤策略
+本项目只对外暴露**2个核心交易接口**，K线获取由内部自动处理。
+
+### 1. Fibonacci交易
+
+```python
+from trading import run_fibonacci_trade
+
+# 运行Fibonacci交易（K线自动获取）
+run_fibonacci_trade(
+    ca="代币地址",
+    total_capital=2.0,      # 总资金（SOL）
+    check_interval=60       # 检查间隔（秒）
+)
+```
+
+**特点**：
+- 自动获取5分钟K线
+- Fibonacci回撤买入（61.8%, 78.6%, 86.1%）
+- AO卖出信号
+- 全部卖出后自动停止
+
+### 2. RSI定投
+
+```python
+from trading import run_rsi_dca
+
+# 运行RSI定投（K线自动获取）
+run_rsi_dca(
+    ca="代币地址",
+    dca_amount=0.1,         # 每次定投金额（SOL）
+    max_buy_count=10,       # 最大定投次数
+    check_interval=300      # 检查间隔（秒）
+)
+```
+
+**特点**：
+- 自动获取1小时K线
+- RSI < 30 时自动买入
+- 买入后等待RSI > 50才能再次买入
+- 达到最大次数后自动停止
+
+---
+
+## �📊 策略说明
+
+### Fibonacci交易策略（5分钟K线）
 - **买入档位**: 0.618, 0.786, 0.861
 - **卖出档位**: 1.000, 1.272
 - **止损**: 0.920
+- **AO卖出**: 零轴上方AO>35k绿转红，或收益率>50%
 
-### AO 卖出信号
-- **零轴上方**: AO > 35k，绿转红卖出
-- **零轴下方**: 收益率 > 50% 卖出
+### RSI定投策略（1小时K线）
+- **买入条件**: RSI < 30
+- **重置条件**: RSI > 50
+- **定投金额**: 固定金额
+- **次数限制**: 达到最大次数后停止
+
+---
+
+## 📖 完整文档
+
+- **[快速开始](QUICK_START.md)** - 5分钟上手
+- **[公开接口](docs/PUBLIC_API.md)** - 对外公开接口说明（只有2个）
+- **[RSI定投](docs/RSI_DCA_GUIDE.md)** - 定投策略说明
+- **[安装指南](INSTALL.md)** - 详细安装步骤
+- **[交易流程](docs/TRADING_PROCESS.md)** - 交易逻辑说明
 
 ---
 
 ## 📝 使用示例
 
-### Python 调用
+### 示例1: Fibonacci交易
 
 ```python
-from trading.executor import execute_trade
+from trading import run_fibonacci_trade
 
-# 执行真实交易
-result = execute_trade(
-    ca="你的CA地址",
-    min_swing_high_mcap=180.0  # 180k USD
+# 运行Fibonacci交易
+run_fibonacci_trade(
+    ca="代币地址",
+    total_capital=2.0,
+    check_interval=60
 )
+```
 
-# 查看结果
-if result:
-    print(f"交易状态: {result['status']}")
-    print(f"买入价格: {result['buy_price']}")
+### 示例2: RSI定投
+
+```python
+from trading import run_rsi_dca
+
+# 运行RSI定投
+run_rsi_dca(
+    ca="代币地址",
+    dca_amount=0.1,
+    max_buy_count=10,
+    check_interval=300
+)
 ```
 
 ---
