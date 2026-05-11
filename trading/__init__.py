@@ -1,16 +1,18 @@
 """
 交易模块 - 对外公开接口
 
-对外只暴露2个核心交易接口:
+对外暴露核心交易接口:
 1. run_fibonacci_trade() - Fibonacci交易（5分钟K线，自动缓存）
-2. run_rsi_dca() - RSI定投（1小时K线）
+2. run_rsi_dca() - RSI定投（单个代币，1小时K线）
+3. run_rsi_dca_multi() - RSI定投（多个代币，内部轮询）
 
 K线获取、缓存、技术指标计算等均为内部实现，不对外暴露。
 """
 
-# ========== 对外公开接口（只有2个） ==========
+# ========== 对外公开接口 ==========
 from .fibonacci_trade import run_fibonacci_trade
 from .rsi_dca_bot import run_rsi_dca
+from .rsi_dca_manager import run_rsi_dca_multi, DCAConfig
 
 # ========== 内部实现（不对外暴露） ==========
 from .executor import TradeExecutor
@@ -32,7 +34,9 @@ from .rsi_dca_bot import RSIDCABot
 from .single_trade_bot import SingleTradeBot
 
 __all__ = [
-    # ========== 对外公开接口（只有2个） ==========
-    'run_fibonacci_trade',  # Fibonacci交易（5分钟K线，自动缓存）
-    'run_rsi_dca',          # RSI定投（1小时K线）
+    # ========== 对外公开接口 ==========
+    'run_fibonacci_trade',   # Fibonacci交易（5分钟K线，自动缓存）
+    'run_rsi_dca',           # RSI定投（单个代币，1小时K线）
+    'run_rsi_dca_multi',     # RSI定投（多个代币，内部轮询）
+    'DCAConfig',             # 定投配置类
 ]

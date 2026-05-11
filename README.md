@@ -75,6 +75,7 @@ run_fibonacci_trade(
 
 #### 方式B: RSI定投（1小时K线）
 
+**单个代币**：
 ```python
 from trading import run_rsi_dca
 
@@ -86,21 +87,39 @@ run_rsi_dca(
 )
 ```
 
+**多个代币（推荐，内部轮询）**：
+```python
+from trading import run_rsi_dca_multi, DCAConfig
+
+# 配置多个代币
+configs = [
+    DCAConfig(ca="代币1地址", dca_amount=0.1, max_buy_count=10),
+    DCAConfig(ca="代币2地址", dca_amount=0.2, max_buy_count=5),
+    DCAConfig(ca="代币3地址", dca_amount=0.15, max_buy_count=8),
+]
+
+# 运行定投管理器（内部每5分钟轮询）
+run_rsi_dca_multi(configs, interval='1h', poll_interval=300)
+```
+
 #### 方式C: 命令行运行
 
 ```bash
 # Fibonacci交易
 python example_fibonacci_trade.py
 
-# RSI定投
+# RSI定投（单个）
 python example_rsi_dca.py
+
+# RSI定投（多个，推荐）
+python example_rsi_dca_multi.py
 ```
 
 ---
 
 ## 📚 对外公开接口
 
-本项目只对外暴露**2个核心交易接口**，K线获取、缓存等由内部自动处理。
+本项目对外暴露**3个核心交易接口**，K线获取、缓存等由内部自动处理。
 
 ### 1. Fibonacci交易
 
@@ -141,6 +160,31 @@ run_rsi_dca(
 - RSI < 30 时自动买入
 - 买入后等待RSI > 50才能再次买入
 - 达到最大次数后自动停止
+
+### 3. RSI定投（多代币，推荐）
+
+```python
+from trading import run_rsi_dca_multi, DCAConfig
+
+# 配置多个代币
+configs = [
+    DCAConfig(ca="代币1地址", dca_amount=0.1, max_buy_count=10),
+    DCAConfig(ca="代币2地址", dca_amount=0.2, max_buy_count=5),
+]
+
+# 运行定投管理器
+run_rsi_dca_multi(
+    configs=configs,
+    interval='1h',          # K线周期
+    poll_interval=300       # 轮询间隔（秒）
+)
+```
+
+**特点**：
+- 支持同时监控多个代币
+- 内部每5分钟轮询一次（不需要外部定时任务）
+- 自动保存状态，支持中断恢复
+- 所有代币买满后自动停止
 
 ---
 
