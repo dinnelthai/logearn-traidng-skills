@@ -101,7 +101,7 @@ class TestPositionConfig(unittest.TestCase):
         self.assertEqual(config.tier_sizes["buy_861"], 0.01)
         
         self.assertEqual(config.trading_start_hour, 0)
-        self.assertEqual(config.trading_end_hour, 13)
+        self.assertEqual(config.trading_end_hour, 24)  # 默认24小时交易
     
     def test_custom_tier_sizes(self):
         """测试自定义档位大小"""

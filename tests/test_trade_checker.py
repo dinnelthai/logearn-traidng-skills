@@ -186,7 +186,8 @@ class TestCheckSingleTrade(unittest.TestCase):
     
     def test_check_single_trade_not_matched(self):
         """测试未匹配到完整交易"""
-        # 创建只有下跌的K线（不会触发买入）
+        # 创建只有下跌的K线（会触发买入但会止损，最终有买有卖）
+        # 注意：修复空仓止损bug后，下跌行情会触发买入+止损，matched=True
         raw_klines = []
         base_time = 1000000
         
@@ -205,10 +206,11 @@ class TestCheckSingleTrade(unittest.TestCase):
         
         result = check_single_trade_from_raw(raw_klines, total_capital=2.0)
         
-        # 不应该匹配到完整交易
-        self.assertFalse(result["matched"])
-        self.assertEqual(len(result["sell_points"]), 0)
-        self.assertIsNone(result["profit"])
+        # 修复空仓止损bug后，下跌行情会：买入 → 止损 → matched=True
+        # 这是正确的行为：不再因为空仓误触发止损而提前结束
+        self.assertTrue(result["matched"])
+        self.assertGreater(len(result["buy_points"]), 0)
+        self.assertGreater(len(result["sell_points"]), 0)
     
     def test_buy_points_structure(self):
         """测试买入点数据结构"""
