@@ -6,27 +6,24 @@
 graph TD
     A[开始] --> B[获取K线数据]
     B --> C[解析K线 parse_klines]
-    C --> D{市值过滤?}
-    D -->|是| E[过滤K线 filter_klines_by_market_cap]
-    D -->|否| F[检测波峰 _swing_from_klines]
-    E --> F
-    F --> G{检测到波峰?}
-    G -->|否| H[继续下一根K线]
-    H --> F
-    G -->|是| I[计算Fibonacci档位 calc_fib_levels]
-    I --> J[检测买入信号 fib_signal]
-    J --> K{触发买入?}
-    K -->|否| L[继续下一根K线]
-    L --> J
-    K -->|是| M[仓位管理 calculate_position_size]
-    M --> N[执行买入 TradeExecutor.buy]
-    N --> O[监控卖出信号]
-    O --> P{触发卖出?}
-    P -->|否| Q[继续监控]
-    Q --> O
-    P -->|是| R[执行卖出 TradeExecutor.sell]
-    R --> S[计算利润]
-    S --> T[结束]
+    C --> D[检测波峰 _swing_from_klines]
+    D --> E{检测到波峰?}
+    E -->|否| F[继续下一根K线]
+    F --> D
+    E -->|是| G[计算Fibonacci档位 calc_fib_levels]
+    G --> H[检测买入信号 fib_signal]
+    H --> I{触发买入?}
+    I -->|否| J[继续下一根K线]
+    J --> H
+    I -->|是| K[仓位管理 calculate_position_size]
+    K --> L[执行买入 TradeExecutor.buy]
+    L --> M[监控卖出信号]
+    M --> N{触发卖出?}
+    N -->|否| O[继续监控]
+    O --> M
+    N -->|是| P[执行卖出 TradeExecutor.sell]
+    P --> Q[计算利润]
+    Q --> R[结束]
 ```
 
 ## 详细流程
@@ -37,7 +34,7 @@ graph TD
 graph TD
     A[开始检测] --> B[获取最新K线]
     B --> C[更新K线窗口]
-    C --> D{K线数 >= 50?}
+    C --> D{K线数 >= 10?}
     D -->|否| E[等待更多K线]
     E --> B
     D -->|是| F[ZigZag检测波峰]

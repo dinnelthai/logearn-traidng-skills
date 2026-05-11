@@ -123,9 +123,6 @@ class TradingConfig:
     position: PositionConfig = None
     profit: ProfitConfig = None
     
-    # 波峰市值门槛（单位k USD），None表示不启用
-    min_swing_high_mcap: float = None
-    
     def __post_init__(self):
         if self.fibonacci is None:
             self.fibonacci = FibonacciConfig()

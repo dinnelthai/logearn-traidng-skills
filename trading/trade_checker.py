@@ -34,56 +34,6 @@ def _format_market_cap(market_cap: float) -> str:
         return f"${market_cap:.1f}K"
 
 
-def filter_klines_by_market_cap(
-    klines: List[Kline],
-    min_market_cap: float = 180.0,
-    require_first_touch: bool = True
-) -> List[Kline]:
-    """
-    根据市值过滤K线数据
-    
-    Args:
-        klines: K线数据列表
-        min_market_cap: 最小市值阈值（单位：k，即千美元）
-        require_first_touch: 是否要求"第一次"达到阈值（当前固定为True）
-    
-    Returns:
-        List[Kline]: 过滤后的K线数据
-        
-    逻辑：
-        1. 找到第一次市值 >= min_market_cap 的K线索引
-        2. 从该索引开始返回所有后续K线
-        3. 如果从未达到阈值，返回空列表
-    
-    示例：
-        klines = [
-            Kline(..., market_cap=150.0),  # 不包含
-            Kline(..., market_cap=185.0),  # 第一次达到180k，从这里开始
-            Kline(..., market_cap=120.0),  # 回调，仍然包含
-            Kline(..., market_cap=200.0),  # 包含
-        ]
-        filtered = filter_klines_by_market_cap(klines, 180.0)
-        # 返回最后3根K线
-    """
-    if not klines:
-        return []
-    
-    # 找到第一次达到阈值的索引
-    first_touch_index = None
-    for i, kline in enumerate(klines):
-        if kline.market_cap >= min_market_cap:
-            first_touch_index = i
-            break
-    
-    # 如果从未达到阈值，返回空列表
-    if first_touch_index is None:
-        return []
-    
-    # 从第一次达到阈值开始返回，保留前面50根（fib需要看到完整swing high）
-    start = max(0, first_touch_index - 50)
-    return klines[start:]
-
-
 def check_single_trade(klines: List[Kline], 
                        total_capital: float = 2.0,
                        config = None,
