@@ -1,6 +1,14 @@
 # LogEarn Trading Skills
 
-基于 Fibonacci 回撤 + AO (Awesome Oscillator) 的 Solana 代币交易策略模块。
+基于 Fibonacci 回撤 + RSI 的 Solana 代币交易策略模块。
+
+## ✨ 核心功能
+
+1. **Fibonacci交易** - 基于Fibonacci回撤的自动化交易（5分钟K线）
+2. **RSI定投** - 基于RSI指标的智能定投策略（1小时K线）
+3. **统一K线服务** - 支持多种周期的K线数据获取
+4. **技术指标** - RSI、Fibonacci、AO等指标计算
+5. **交易执行** - 自动买入、卖出、持仓管理
 
 ---
 
@@ -8,13 +16,22 @@
 
 ```
 logearn-traidng-skills/
-├── trading/          # 核心交易模块
-├── backtester/       # 回测模块
-├── tests/            # 测试文件
-├── examples/         # 使用示例
-├── diagnostics/      # 诊断工具
-├── docs/             # 文档
-└── papertrading.py   # 纸上交易入口
+├── trading/                    # 核心交易模块
+│   ├── kline_service.py       # 统一K线服务
+│   ├── indicators.py          # 技术指标（RSI等）
+│   ├── rsi_dca_bot.py         # RSI定投机器人
+│   ├── single_trade_bot.py    # Fibonacci交易机器人
+│   ├── executor.py            # 交易执行器
+│   └── fib_calculator.py      # Fibonacci计算
+├── docs/                       # 文档
+│   ├── API_USAGE.md           # 对外接口使用指南
+│   ├── KLINE_SERVICE_GUIDE.md # K线服务指南
+│   ├── RSI_DCA_GUIDE.md       # RSI定投指南
+│   └── SINGLE_TRADE_GUIDE.md  # 单次交易指南
+├── tests/                      # 测试文件
+├── example_single_trade.py     # Fibonacci交易示例
+├── example_rsi_dca.py         # RSI定投示例
+└── QUICK_START.md             # 快速开始
 ```
 
 ---
@@ -24,113 +41,205 @@ logearn-traidng-skills/
 ### 1. 安装
 
 ```bash
-# 克隆仓库
+# 从GitHub安装最新版本
+pip install git+https://github.com/dinnelthai/logearn-traidng-skills.git@release/v0.1.0
+
+# 或克隆后安装
 git clone https://github.com/dinnelthai/logearn-traidng-skills.git
 cd logearn-traidng-skills
-
-# 安装为 skills
+git checkout release/v0.1.0
 pip install -e .
 ```
 
-### 2. 配置 LogEarn
+### 2. 设置环境变量
 
 ```bash
-# 安装 LogEarn Skills
-npx skills add logearn/logearn-skills
-
-# 设置环境变量
-export LOGEARN_CLI_PATH="$HOME/.hermes/skills/logearn/logearn-cli.py"
-export LOGEARN_API_KEY="your_api_key"
+export LOGEARN_API_KEY="你的API Key"
+export TOKEN_CA="代币地址"  # 可选
 ```
-
-详细配置请查看 [SETUP_LOGEARN.md](SETUP_LOGEARN.md)
 
 ### 3. 使用
 
-```bash
-# 纸上交易（回测）
-papertrading <CA地址> [市值门槛]
+#### 方式A: Fibonacci交易（5分钟K线）
 
-# 示例
-papertrading HSznAnNhSFgyRWiZh4m7pBmtjHsSLi4Dbmjp18zppump 180k
+```python
+from trading import run_fibonacci_trade
+
+# 自动使用K线缓存+增量更新
+run_fibonacci_trade(
+    ca="代币地址",
+    total_capital=2.0,
+    check_interval=60
+)
+```
+
+#### 方式B: RSI定投（1小时K线）
+
+**单个代币**：
+```python
+from trading import run_rsi_dca
+
+run_rsi_dca(
+    ca="代币地址",
+    dca_amount=0.1,
+    max_buy_count=10,
+    interval='1h'
+)
+```
+
+**多个代币（推荐，内部轮询）**：
+```python
+from trading import run_rsi_dca_multi, DCAConfig
+
+# 配置多个代币
+configs = [
+    DCAConfig(ca="代币1地址", dca_amount=0.1, max_buy_count=10),
+    DCAConfig(ca="代币2地址", dca_amount=0.2, max_buy_count=5),
+    DCAConfig(ca="代币3地址", dca_amount=0.15, max_buy_count=8),
+]
+
+# 运行定投管理器（内部每5分钟轮询）
+run_rsi_dca_multi(configs, interval='1h', poll_interval=300)
+```
+
+#### 方式C: 命令行运行
+
+```bash
+# Fibonacci交易
+python example_fibonacci_trade.py
+
+# RSI定投（单个）
+python example_rsi_dca.py
+
+# RSI定投（多个，推荐）
+python example_rsi_dca_multi.py
 ```
 
 ---
 
-## 📊 核心功能
+## 📚 对外公开接口
 
-### Fibonacci 回撤策略
+本项目对外暴露**3个核心交易接口**，K线获取、缓存等由内部自动处理。
+
+### 1. Fibonacci交易
+
+```python
+from trading import run_fibonacci_trade
+
+# 运行Fibonacci交易（K线自动缓存+增量更新）
+run_fibonacci_trade(
+    ca="代币地址",
+    total_capital=2.0,      # 总资金（SOL）
+    check_interval=60       # 检查间隔（秒）
+)
+```
+
+**特点**：
+- 自动获取5分钟K线（首次全量，后续增量）
+- Fibonacci回撤买入（61.8%, 78.6%, 86.1%）
+- AO卖出信号
+- 全部卖出后自动停止
+- 首次获取全量历史K线，后续减少90%+ API调用
+
+### 2. RSI定投
+
+```python
+from trading import run_rsi_dca
+
+# 运行RSI定投（K线自动获取）
+run_rsi_dca(
+    ca="代币地址",
+    dca_amount=0.1,         # 每次定投金额（SOL）
+    max_buy_count=10,       # 最大定投次数
+    check_interval=300      # 检查间隔（秒）
+)
+```
+
+**特点**：
+- 自动获取1小时K线
+- RSI < 30 时自动买入
+- 买入后等待RSI > 50才能再次买入
+- 达到最大次数后自动停止
+
+### 3. RSI定投（多代币，推荐）
+
+```python
+from trading import run_rsi_dca_multi, DCAConfig
+
+# 配置多个代币
+configs = [
+    DCAConfig(ca="代币1地址", dca_amount=0.1, max_buy_count=10),
+    DCAConfig(ca="代币2地址", dca_amount=0.2, max_buy_count=5),
+]
+
+# 运行定投管理器
+run_rsi_dca_multi(
+    configs=configs,
+    interval='1h',          # K线周期
+    poll_interval=300       # 轮询间隔（秒）
+)
+```
+
+**特点**：
+- 支持同时监控多个代币
+- 内部每5分钟轮询一次（不需要外部定时任务）
+- 自动保存状态，支持中断恢复
+- 所有代币买满后自动停止
+
+---
+
+## �📊 策略说明
+
+### Fibonacci交易策略（5分钟K线）
 - **买入档位**: 0.618, 0.786, 0.861
 - **卖出档位**: 1.000, 1.272
 - **止损**: 0.920
+- **AO卖出**: 零轴上方AO>35k绿转红，或收益率>50%
 
-### AO 卖出信号
-- **零轴上方**: AO > 35k，绿转红卖出
-- **零轴下方**: 收益率 > 50% 卖出
+### RSI定投策略（1小时K线）
+- **买入条件**: RSI < 30
+- **重置条件**: RSI > 50
+- **定投金额**: 固定金额
+- **次数限制**: 达到最大次数后停止
 
-### 市值过滤（双重机制）
+---
 
-#### 1. K线市值过滤
-从第一次达到最小市值的K线开始分析
+## 📖 完整文档
 
-#### 2. 波峰市值门槛 ⭐ 新功能
-- 只有波峰市值达到门槛才启动买入检测
-- 买卖周期完成后自动重置
-- 支持动态调整门槛
+- **[快速开始](QUICK_START.md)** - 5分钟上手
+- **[公开接口](docs/PUBLIC_API.md)** - 对外公开接口说明（只有2个）
+- **[RSI定投](docs/RSI_DCA_GUIDE.md)** - 定投策略说明
+- **[安装指南](INSTALL.md)** - 详细安装步骤
+- **[交易流程](docs/TRADING_PROCESS.md)** - 交易逻辑说明
 
 ---
 
 ## 📝 使用示例
 
-### 命令行使用
-
-```bash
-# 默认门槛 180k
-papertrading <CA地址>
-
-# 自定义门槛
-papertrading <CA地址> 200k
-
-# 不启用门槛
-papertrading <CA地址> 0
-```
-
-### Python 调用
+### 示例1: Fibonacci交易
 
 ```python
-from papertrading import papertrading
+from trading import run_fibonacci_trade
 
-# 运行回测
-result = papertrading(
-    ca="你的CA地址",
-    min_swing_high_mcap=180.0  # 180k USD
+# 运行Fibonacci交易
+run_fibonacci_trade(
+    ca="代币地址",
+    total_capital=2.0,
+    check_interval=60
 )
-
-# 查看结果
-if result:
-    print(f"交易次数: {len(result['trades'])}")
-    print(f"胜率: {result['win_rate']*100:.1f}%")
-    print(f"平均收益: {result['avg_profit_rate']*100:.2f}%")
 ```
 
-### 高级用法
+### 示例2: RSI定投
 
 ```python
-from trading.win_rate_analyzer import analyze_token_trades
-from backtester.fetch_klines import get_token_info, fetch_klines
+from trading import run_rsi_dca
 
-# 获取数据
-info = get_token_info(ca)
-klines = fetch_klines(ca)
-
-# 运行分析（双重市值过滤）
-result = analyze_token_trades(
-    ca=ca,
-    raw_klines=klines,
-    supply=info['total_supply'],
-    min_market_cap=180.0,         # K线过滤
-    min_swing_high_mcap=180.0,    # 波峰门槛
-    max_trades=5
+# 运行RSI定投
+run_rsi_dca(
+    ca="代币地址",
+    dca_amount=0.1,
+    max_buy_count=10,
+    check_interval=300
 )
 ```
 
@@ -141,12 +250,6 @@ result = analyze_token_trades(
 ```bash
 # 运行所有测试
 ./run_tests.sh
-
-# 波峰市值门槛测试
-python tests/test_swing_high_mcap_filter.py
-
-# 市值过滤测试
-python tests/test_filter_logic.py
 ```
 
 ---
@@ -163,17 +266,15 @@ python tests/test_filter_logic.py
 
 ## 🎯 核心特性
 
-✅ Fibonacci 回撤买入/卖出  
-✅ AO (Awesome Oscillator) 卖出信号  
-✅ 分档买入，分批卖出  
-✅ 仓位管理  
-✅ 止损机制  
-✅ K线市值过滤  
-✅ 波峰市值门槛 ⭐  
-✅ 买卖周期重置  
-✅ 多次交易分析  
-✅ 胜率统计  
-✅ HTML报告生成  
+✅ Fibonacci 回撤买入/卖出
+✅ AO (Awesome Oscillator) 卖出信号
+✅ 分档买入，分批卖出
+✅ 仓位管理
+✅ 止损机制
+✅ K线市值过滤
+✅ 波峰市值门槛 ⭐
+✅ 买卖周期重置
+✅ 真实交易执行  
 
 ---
 
@@ -187,12 +288,6 @@ export LOGEARN_CLI_PATH="$HOME/.hermes/skills/logearn/logearn-cli.py"
 
 # LogEarn API Key（必须）
 export LOGEARN_API_KEY="your_api_key"
-
-# 数据库路径（可选）
-export BACKTEST_DB="$HOME/backtest/data/backtest.db"
-
-# 缓存路径（可选）
-export BACKTEST_CACHE="$HOME/backtest/cache"
 ```
 
 ### 交易配置
@@ -216,19 +311,12 @@ config = TradingConfig(
 │   ├── position_manager.py
 │   ├── trade_checker.py
 │   ├── win_rate_analyzer.py
+│   ├── executor.py
 │   └── config.py
 │
-├── backtester/       # 回测工具
-│   ├── fetch_klines.py
-│   ├── backtest.py
-│   └── run_backtest.py
-│
 ├── tests/            # 测试文件
-├── examples/         # 使用示例
-├── diagnostics/      # 诊断工具
 ├── docs/             # 文档
 │
-├── papertrading.py   # 纸上交易入口
 ├── setup.py          # 安装配置
 └── README.md         # 本文件
 ```

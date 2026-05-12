@@ -1,57 +1,42 @@
 """
-交易模块 - 独立的交易逻辑
+交易模块 - 对外公开接口
 
-包含:
-- 交易执行 (买入/卖出)
-- 仓位管理
-- 止盈止损
-- Fibonacci计算 (买入/卖出信号)
-- 交易统计
+对外暴露核心交易接口:
+1. run_fibonacci_trade() - Fibonacci交易（5分钟K线，自动缓存）
+2. run_rsi_dca() - RSI定投（单个代币，1小时K线）
+3. run_rsi_dca_multi() - RSI定投（多个代币，内部轮询）
+
+K线获取、缓存、技术指标计算等均为内部实现，不对外暴露。
 """
 
+# ========== 对外公开接口 ==========
+from .fibonacci_trade import run_fibonacci_trade
+from .rsi_dca_bot import run_rsi_dca
+from .rsi_dca_manager import run_rsi_dca_multi, DCAConfig
+
+# ========== 内部实现（不对外暴露） ==========
 from .executor import TradeExecutor
 from .position_manager import PositionManager
 from .profit_manager import ProfitManager
 from .fib_calculator import (
-    # 数据类型
-    Kline, FibLevel,
-    # K线解析
-    parse_klines,
-    # Fibonacci计算
+    Kline, FibLevel, parse_klines,
     fib_entry_levels, fib_sell_levels, fib_signal,
-    # AO计算
-    calc_ao, ao_sell_signal,
-    # ZIGZAG
-    zigzag_pivots,
-    # 仓位配置
+    calc_ao, ao_sell_signal, zigzag_pivots,
     ENTRY_TIERS, BUY_RATIOS, SELL_RATIOS, SELL_PERCENTAGES,
-    MAX_POSITION_RATIO, MIN_POSITION_SOL,
-    position_size,
+    MAX_POSITION_RATIO, MIN_POSITION_SOL, position_size,
 )
+from .kline_service import (
+    KlineService, get_kline_service,
+    get_klines, get_klines_raw
+)
+from .indicators import calculate_rsi, calculate_rsi_series
+from .rsi_dca_bot import RSIDCABot
+from .single_trade_bot import SingleTradeBot
 
 __all__ = [
-    # 核心模块
-    'TradeExecutor',
-    'PositionManager',
-    'ProfitManager',
-    
-    # Fibonacci计算
-    'Kline',
-    'FibLevel',
-    'parse_klines',
-    'fib_entry_levels',
-    'fib_sell_levels',
-    'fib_signal',
-    'calc_ao',
-    'ao_sell_signal',
-    'zigzag_pivots',
-    
-    # 仓位配置
-    'ENTRY_TIERS',
-    'BUY_RATIOS',
-    'SELL_RATIOS',
-    'SELL_PERCENTAGES',
-    'MAX_POSITION_RATIO',
-    'MIN_POSITION_SOL',
-    'position_size',
+    # ========== 对外公开接口 ==========
+    'run_fibonacci_trade',   # Fibonacci交易（5分钟K线，自动缓存）
+    'run_rsi_dca',           # RSI定投（单个代币，1小时K线）
+    'run_rsi_dca_multi',     # RSI定投（多个代币，内部轮询）
+    'DCAConfig',             # 定投配置类
 ]

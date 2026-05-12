@@ -25,15 +25,16 @@ class TradeExecutor:
     
     SOL_ADDRESS = "So11111111111111111111111111111111111111112"
     
-    def __init__(self, wallet: str, logearn_cli_path: str = None):
+    def __init__(self, logearn_cli_path: str = None):
         """
         初始化交易执行器
         
         Args:
-            wallet: 钱包地址
             logearn_cli_path: LogEarn CLI路径
+        
+        Note:
+            LogEarn skill与token绑定，不需要手动指定钱包
         """
-        self.wallet = wallet
         
         if logearn_cli_path is None:
             # 默认路径
@@ -66,7 +67,6 @@ class TradeExecutor:
                 [
                     "python3", self.logearn_cli,
                     "log-swap",
-                    "--wallet", self.wallet,
                     "--token-in", token_in,
                     "--token-out", token_out,
                     "--amount-in", amount_in,
@@ -220,7 +220,6 @@ class TradeExecutor:
                 [
                     "python3", self.logearn_cli,
                     "log-get-positions",
-                    "--address", self.wallet,
                     "--raw"
                 ],
                 capture_output=True,

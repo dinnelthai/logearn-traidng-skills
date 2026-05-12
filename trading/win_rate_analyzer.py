@@ -12,20 +12,16 @@ from .trade_checker import check_single_trade, _format_market_cap
 def split_trades_by_sell_points(
     klines: List[Kline],
     total_capital: float = 2.0,
-    supply: float = None,
-    min_swing_high_mcap: float = None,
     max_trades: int = 5
 ) -> List[Dict]:
     """
     基于卖出点分割多次交易（按时间顺序）
-    
+
     Args:
         klines: K线数据列表
         total_capital: 总资金
-        supply: 代币总量
-        min_swing_high_mcap: 波峰市值门槛（单位：k USD）
         max_trades: 最多分析几次交易
-    
+
     Returns:
         List[Dict]: 每次交易的结果（按时间顺序）
         [
@@ -38,111 +34,36 @@ def split_trades_by_sell_points(
             ...
         ]
     """
-    # 找到第一次市值 >= 门槛的K线索引（全局检查一次）
-    mcap_trigger_index = None
-    
-    print(f"\n[DEBUG split_trades_by_sell_points]")
-    print(f"  min_swing_high_mcap: {min_swing_high_mcap}")
-    print(f"  supply: {supply}")
-    print(f"  K线数: {len(klines)}")
-    if len(klines) > 0:
-        first_k = klines[0]
-        print(f"  第1根K线有market_cap: {hasattr(first_k, 'market_cap')}")
-        if hasattr(first_k, 'market_cap'):
-            print(f"  第1根K线market_cap: {first_k.market_cap}k")
-    
-    if min_swing_high_mcap is not None and supply is not None and supply > 0:
-        for i, k in enumerate(klines):
-            mcap_k = 0
-            if hasattr(k, 'market_cap') and k.market_cap > 0:
-                mcap_k = k.market_cap
-            else:
-                # 如果没有market_cap字段，用USD价格 * supply 计算
-                # 注意：需要从原始数据获取 closeU
-                closeU = getattr(k, 'closeU', 0) if hasattr(k, 'closeU') else 0
-                mcap_k = (closeU * supply) / 1000 if closeU > 0 else 0
-            
-            if mcap_k >= min_swing_high_mcap:
-                mcap_trigger_index = i
-                from datetime import datetime, timezone, timedelta
-                trigger_time = datetime.fromtimestamp(k.time, tz=timezone.utc)
-                beijing_tz = timezone(timedelta(hours=8))
-                print(f"\n{'='*80}")
-                print(f"✅ 市值门槛触发点")
-                print(f"{'='*80}")
-                print(f"索引: {mcap_trigger_index}")
-                print(f"时间: {trigger_time.strftime('%Y-%m-%d %H:%M:%S')} UTC")
-                print(f"北京: {trigger_time.astimezone(beijing_tz).strftime('%Y-%m-%d %H:%M:%S')}")
-                print(f"市值: {mcap_k:.2f}k")
-                print(f"价格(SOL): {k.close:.8f}")
-                print(f"{'='*80}\n")
-                break
-        
-        if mcap_trigger_index is None:
-            print(f"\n⚠️ 未找到市值 >= {min_swing_high_mcap}k 的K线")
-            # 找最高市值
-            max_mcap = 0
-            max_index = 0
-            for i, k in enumerate(klines):
-                if hasattr(k, 'market_cap') and k.market_cap > 0:
-                    mcap_k = k.market_cap
-                else:
-                    closeU = getattr(k, 'closeU', 0) if hasattr(k, 'closeU') else 0
-                    mcap_k = (closeU * supply) / 1000 if closeU > 0 else 0
-                if mcap_k > max_mcap:
-                    max_mcap = mcap_k
-                    max_index = i
-            from datetime import datetime, timezone
-            max_time = datetime.fromtimestamp(klines[max_index].time, tz=timezone.utc)
-            print(f"最高市值: {max_mcap:.2f}k (索引 {max_index}, 时间 {max_time.strftime('%Y-%m-%d %H:%M:%S')} UTC)\n")
-    
     trades = []
     remaining_klines = klines
-    current_offset = 0  # 当前在原始K线中的偏移量
-    
+    current_offset = 0  # 当前在原始K线中的偏移
+
     while len(trades) < max_trades and len(remaining_klines) > 0:
-        # 计算相对于原始K线的触发索引
-        # 如果有触发点，需要转换为相对于 remaining_klines 的索引
-        relative_trigger_index = None
-        if mcap_trigger_index is not None:
-            session_end = current_offset + len(remaining_klines) - 1
-            
-            if mcap_trigger_index > session_end:
-                # 触发点在当前 session 之后，跳过这个 session
-                print(f"[DEBUG] Session 跳过：触发点 {mcap_trigger_index} > session 结束 {session_end}")
-                break
-            elif mcap_trigger_index >= current_offset:
-                # 触发点在当前窗口内
-                relative_trigger_index = mcap_trigger_index - current_offset
-            else:
-                # 触发点在当前窗口之前，说明已经触发过了
-                relative_trigger_index = 0  # 从第一根K线开始就允许
-        
         # 运行回测
         result = check_single_trade(
             remaining_klines,
             total_capital=total_capital,
-            mcap_trigger_index=relative_trigger_index
+            mcap_trigger_index=None
         )
-        
+
         # 调试输出
         print(f"\n[DEBUG Session Result]")
         print(f"  matched: {result['matched']}")
         print(f"  buy_points: {len(result.get('buy_points', []))}")
         print(f"  sell_points: {len(result.get('sell_points', []))}")
-        
+
         # 如果没有匹配到交易，结束
         if not result["matched"]:
             print(f"  → Session 未匹配，结束")
             break
-        
+
         # 获取第一个买入点的时间（用于排序）
         buy_points = result.get("buy_points", [])
         if not buy_points:
             break
-        
+
         first_buy_time = buy_points[0].get("time", 0)
-        
+
         # 记录这次交易（暂时不编号）
         trades.append({
             "trade_number": 0,  # 稍后按时间排序后重新编号
@@ -151,25 +72,25 @@ def split_trades_by_sell_points(
             "first_buy_time": first_buy_time,  # 用于排序
             "result": result
         })
-        
+
         # 找到最后一个卖出点的K线索引（相对于 remaining_klines）
         sell_points = result.get("sell_points", [])
         if not sell_points:
             break
-        
+
         last_sell_index = max(sell["kline_index"] for sell in sell_points)
-        
+
         # 从卖出点后的K线开始下一次交易
         # 留出至少10根K线的间隔，避免立即重新买入
         next_start_index = last_sell_index + 10
-        
+
         # 更新偏移量和剩余K线（使用全局索引）
         current_offset += next_start_index
-        
+
         # 检查是否还有剩余K线
         if current_offset >= len(klines):
             break
-        
+
         remaining_klines = klines[current_offset:]
     
     # 按第一个买入时间排序
@@ -189,24 +110,18 @@ def analyze_token_trades(
     raw_klines: List[dict],
     symbol: str = None,
     total_capital: float = 2.0,
-    min_market_cap: float = None,
-    supply: float = None,
-    min_swing_high_mcap: float = None,
     max_trades: int = 5
 ) -> Dict:
     """
     分析单个币的多次交易
-    
+
     Args:
         ca: 币地址
         raw_klines: 原始K线数据
         symbol: 币符号
         total_capital: 总资金
-        min_market_cap: 最小市值阈值
-        supply: 代币总量
-        min_swing_high_mcap: 波峰市值门槛
         max_trades: 最多分析几次交易
-    
+
     Returns:
         {
             "ca": "...",
@@ -221,8 +136,6 @@ def analyze_token_trades(
                     "is_win": True,
                     "buy_time": 1000000,
                     "sell_time": 1005000,
-                    "market_cap_at_buy": 133.0,
-                    "market_cap_at_sell": 178.5,
                     "buy_count": 1,
                     "sell_count": 2
                 },
@@ -232,13 +145,11 @@ def analyze_token_trades(
     """
     # 解析K线
     klines = parse_klines(raw_klines)
-    
+
     # 分割交易
     trades_raw = split_trades_by_sell_points(
         klines,
         total_capital=total_capital,
-        supply=supply,
-        min_swing_high_mcap=min_swing_high_mcap,
         max_trades=max_trades
     )
     

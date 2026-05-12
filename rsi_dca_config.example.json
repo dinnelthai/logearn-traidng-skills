@@ -1,0 +1,26 @@
+[
+  {
+    "ca": "代币1地址_替换为实际地址",
+    "dca_amount": 0.1,
+    "max_buy_count": 10,
+    "rsi_period": 14,
+    "rsi_buy_threshold": 30.0,
+    "rsi_reset_threshold": 50.0
+  },
+  {
+    "ca": "代币2地址_替换为实际地址",
+    "dca_amount": 0.2,
+    "max_buy_count": 5,
+    "rsi_period": 14,
+    "rsi_buy_threshold": 30.0,
+    "rsi_reset_threshold": 50.0
+  },
+  {
+    "ca": "代币3地址_替换为实际地址",
+    "dca_amount": 0.15,
+    "max_buy_count": 8,
+    "rsi_period": 14,
+    "rsi_buy_threshold": 30.0,
+    "rsi_reset_threshold": 50.0
+  }
+]

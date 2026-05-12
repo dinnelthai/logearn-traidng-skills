@@ -29,11 +29,11 @@ class PositionManager:
         self.trading_start_hour = trading_start_hour
         self.trading_end_hour = trading_end_hour
         
-        # 仓位档位配置
+        # 仓位档位配置（与 config.py 中的 PositionConfig.tier_sizes 保持一致）
         self.tier_sizes = {
-            "buy_618": 0.03,  # 3%
-            "buy_786": 0.02,  # 2%
-            "buy_861": 0.01,  # 1%
+            "buy_618": 0.03,  # 3% of total_capital
+            "buy_786": 0.02,  # 2% of total_capital
+            "buy_861": 0.01,  # 1% of total_capital
         }
     
     def is_trading_time_allowed(self) -> Tuple[bool, str]:
@@ -66,6 +66,48 @@ class PositionManager:
         """
         ratio = self.tier_sizes.get(tier, 0.01)
         return total_capital * ratio
+    
+    def check_can_buy(self,
+                      tier: str,
+                      tiers_bought: list,
+                      total_capital: float,
+                      api_price: float) -> Tuple[bool, str]:
+        """
+        检查是否可以买入指定档位（简化版，用于单次交易机器人）
+        
+        Args:
+            tier: 买入档位（buy_618/buy_786/buy_861）
+            tiers_bought: 已买入档位列表
+            total_capital: 总资金
+            api_price: 当前价格
+        
+        Returns:
+            Tuple[bool, str]: (是否可以买入, 原因)
+        """
+        # 1. 时间检查
+        allowed, reason = self.is_trading_time_allowed()
+        if not allowed:
+            return False, reason
+        
+        # 2. 计算买入金额
+        buy_amount = self.calculate_position_size(total_capital, tier)
+        
+        # 3. 最小金额检查
+        if buy_amount < self.min_position_sol:
+            return False, f"金额 {buy_amount:.4f} < 最低 {self.min_position_sol} SOL"
+        
+        # 4. 仓位上限检查（基于已买档位估算）
+        total_bought_ratio = sum(self.tier_sizes.get(t, 0) for t in tiers_bought)
+        new_ratio = self.tier_sizes.get(tier, 0)
+        
+        if total_bought_ratio + new_ratio > self.max_position_ratio:
+            return False, (
+                f"超仓: 已买{total_bought_ratio*100:.0f}% + "
+                f"本次{new_ratio*100:.0f}% > "
+                f"上限{self.max_position_ratio*100:.0f}%"
+            )
+        
+        return True, "允许买入"
     
     def can_buy(self, 
                 ca: str,
@@ -177,21 +219,26 @@ class PositionManager:
         
         Args:
             entry_prices: 各档位买入价格 {tier: price}
-            entry_amounts: 各档位买入金额 {tier: amount_sol}
+            entry_amounts: 各档位买入金额(SOL) {tier: amount_sol}
             tiers_bought: 已买入档位列表
         
         Returns:
             float: 加权平均价格
+        
+        示例:
+            entry_prices = {"buy_618": 0.0001, "buy_786": 0.00008}
+            entry_amounts = {"buy_618": 0.03, "buy_786": 0.02}  # SOL金额
+            加权均价 = (0.03 + 0.02) / (0.03/0.0001 + 0.02/0.00008)
         """
         total_sol = 0.0
         total_tokens = 0.0
         
         for tier in tiers_bought:
             price = entry_prices.get(tier, 0)
-            sol = entry_amounts.get(tier, 0)
+            sol = entry_amounts.get(tier, 0)  # SOL金额
             
             if price > 0 and sol > 0:
-                tokens = sol / price
+                tokens = sol / price  # 计算token数量
                 total_sol += sol
                 total_tokens += tokens
         
