@@ -162,7 +162,7 @@ class SingleTradeBot:
             # 更新状态
             self.tiers_bought.append(action)
             self.entry_prices[action] = current_kline.close
-            self.entry_amounts[action] = buy_amount / current_kline.close
+            self.entry_amounts[action] = buy_amount  # 存储SOL金额，而非token数量
             
             # 锁定波峰和止损
             if self.entry_swing_high is None:

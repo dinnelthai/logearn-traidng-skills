@@ -86,9 +86,9 @@ def run_fibonacci_trade(ca: str, total_capital: float = 2.0, check_interval: int
             all_klines = service.get_all_klines(ca, interval='5m', max_pages=50)
             print(f"✅ 获取全量K线: {len(all_klines)}根")
             
-            # 存入缓存
+            # 存入缓存（注意：K线按时间倒序，all_klines[0]是最新K线）
             cache.klines = all_klines
-            cache.last_update_time = all_klines[0].time if all_klines else None
+            cache.last_update_time = all_klines[0].time if all_klines else None  # 最新K线时间
             
             first_fetch = False
             klines = all_klines
