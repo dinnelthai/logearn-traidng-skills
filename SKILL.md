@@ -1,9 +1,9 @@
 ---
 name: logearn-trading-skills
-description: LogEarn Solana Meme币交易技能库 — TradeExecutor / PositionManager / ProfitManager / FIB计算器 / AO指标。数据来源：signals_3x.db（684条历史信号）
-triggers: [logearn-trading, trading-skills, 回测, backtest, fib, ao, 止盈止损]
-version: 1.0.0
-tags: [trading, solana, meme-coin, fibonacci, ao-indicator]
+description: LogEarn Solana Meme币交易技能库 — TradeExecutor / PositionManager / ProfitManager / FIB计算器 / AO指标 / AO监控机器人。支持Fibonacci交易、RSI定投、AO自动卖出。
+triggers: [logearn-trading, trading-skills, 回测, backtest, fib, ao, 止盈止损, ao监控, 自动卖出, 接管持仓]
+version: 1.1.0
+tags: [trading, solana, meme-coin, fibonacci, ao-indicator, auto-sell, position-monitor]
 source: git@github.com:dinnelthai/logearn-traidng-skills.git
 ---
 
@@ -12,6 +12,15 @@ source: git@github.com:dinnelthai/logearn-traidng-skills.git
 Solana Meme币交易技能库，包含完整的交易执行、仓位管理、止盈止损逻辑。
 
 ## 核心模块
+
+### AO监控机器人 (AOMonitor) ⭐ 新功能
+- `run_ao_monitor(ca, entry_price, sell_percentage)` — 监控单个代币AO信号并自动卖出
+- `run_ao_monitor_multi(configs)` — 同时监控多个代币
+- **功能**: 接管现有持仓，AO绿转红时自动卖出
+- **策略**: 
+  - AO >= 35k 绿转红 → 立即卖出
+  - AO < 35k 绿转红 + 收益率 > 50% → 卖出（需提供买入价）
+  - AO < 35k 绿转红 + 无买入价 → 不卖出（保守模式）
 
 ### 交易执行器 (TradeExecutor)
 - `buy(ca, amount_sol, limit_price, current_price, slippage)` — 买入
@@ -68,4 +77,57 @@ result = bt.run(
     }
 )
 # result: {win/total, avg_profit, exit_reasons: {ao/50%/100%/fib/stop}}
+```
+
+## AO监控使用示例
+
+### 监控单个代币
+```python
+from trading import run_ao_monitor
+
+# 提供买入价（推荐）
+run_ao_monitor(
+    ca="代币地址",
+    entry_price=0.00004,  # 买入均价
+    sell_percentage=1.0   # 卖出100%
+)
+
+# 不提供买入价（保守模式）
+run_ao_monitor(
+    ca="代币地址",
+    entry_price=None,
+    sell_percentage=1.0
+)
+```
+
+### 监控多个代币
+```python
+from trading import run_ao_monitor_multi, AOMonitorConfig
+
+configs = [
+    AOMonitorConfig(ca="CA1", entry_price=0.00004, sell_percentage=1.0),
+    AOMonitorConfig(ca="CA2", entry_price=0.00005, sell_percentage=0.5),
+    AOMonitorConfig(ca="CA3", entry_price=None, sell_percentage=1.0),
+]
+
+run_ao_monitor_multi(configs, interval='5m', check_interval=60)
+```
+
+### Hermes Agent 提示语示例
+
+**启动AO监控**:
+```
+帮我监控这两个代币的AO信号并自动卖出：
+- CA1: FDBjQdN4Uf8rsJfn9eNRbmNjaQktCdqJ63Ptijfdpump，买入价 0.00004
+- CA2: 另一个代币地址，买入价未知
+```
+
+**查看监控状态**:
+```
+检查AO监控是否在运行
+```
+
+**停止监控**:
+```
+停止AO监控
 ```
