@@ -306,11 +306,11 @@ def ao_sell_signal(ao_values: list,
                     config = None) -> dict:
     """
     AO 卖出信号判断
-    - AO >= 阈值：绿转红直接卖出
-    - AO < 阈值：需绿转红 + 收益率 > 阈值 才卖出
+    - AO >= 35k 绿转红：直接卖出（不需要买入价）
+    - AO < 35k 绿转红：需要买入价 + 收益率 > 50% 才卖出
     返回 {'action': 'sell', 'ao_value': float, 'threshold': float, 'reason': str} 或 {}
     
-    Bug Fix: 当 entry_price 为 None 时，如果 AO < 阈值，仍然记录信号但不执行卖出
+    如果没有提供买入价，AO < 35k 时不会卖出
     """
     if config is None:
         config = DEFAULT_CONFIG.ao
@@ -343,11 +343,8 @@ def ao_sell_signal(ao_values: list,
                     "threshold": config.threshold_normal,
                     "reason": f"ao<{config.threshold_normal*1e6:.0f}k但收益率>{config.profit_threshold*100:.0f}%({ret*100:.1f}%)"}
     
-    # Bug Fix: entry_price 为 None 时，记录警告但不卖出
-    # 这样可以在日志中看到潜在的卖出信号
-    return {"action": "watch", "ao_value": ao_0,
-            "threshold": config.threshold_normal,
-            "reason": f"ao<{config.threshold_normal*1e6:.0f}k绿转红但无持仓价格信息"}
+    # 没有买入价或收益率不足 → 不卖出
+    return {}
 
 
 def fib_sell_signal(swing_high: float, swing_low: float, current_price: float,
