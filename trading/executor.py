@@ -66,12 +66,16 @@ class TradeExecutor:
             result = subprocess.run(
                 [
                     "python3", self.logearn_cli,
-                    "log-swap",
-                    "--token-in", token_in,
-                    "--token-out", token_out,
-                    "--amount-in", amount_in,
-                    "--slippage", "0.02",
-                    "--raw"
+                    "log-swap-solana",
+                    "--caller", "9Af39geMdc5ArtGtRu7aXtNHVFD3mbT8errbCT8gsZdS",
+                    "--event", action,
+                    "--action", json.dumps({
+                        "token": token_out if action == "sell" else token_out,
+                        "tokenIn": token_in,
+                        "tokenOut": token_out,
+                        "amountIn": amount_in,
+                        "slippage": "0.05"
+                    })
                 ],
                 capture_output=True,
                 text=True,
