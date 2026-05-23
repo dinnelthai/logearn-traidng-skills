@@ -14,6 +14,10 @@ from .fibonacci_trade import run_fibonacci_trade
 from .rsi_dca_bot import run_rsi_dca
 from .rsi_dca_manager import run_rsi_dca_multi, DCAConfig
 from .ao_monitor import run_ao_monitor, run_ao_monitor_multi, AOMonitorConfig
+from .ao_monitor_manager import (
+    add_ao_monitor, remove_ao_monitor, stop_ao_monitor, start_ao_monitor,
+    list_ao_monitors, show_ao_monitors, stop_all_ao_monitors
+)
 
 # ========== 内部实现（不对外暴露） ==========
 from .executor import TradeExecutor
@@ -43,4 +47,13 @@ __all__ = [
     'run_ao_monitor_multi',  # AO监控（多个代币，接管持仓）
     'DCAConfig',             # 定投配置类
     'AOMonitorConfig',       # AO监控配置类
+    
+    # ========== AO监控管理接口 ==========
+    'add_ao_monitor',        # 添加AO监控
+    'remove_ao_monitor',     # 移除AO监控
+    'stop_ao_monitor',       # 停止AO监控
+    'start_ao_monitor',      # 启动AO监控
+    'list_ao_monitors',      # 列出所有监控
+    'show_ao_monitors',      # 显示监控状态
+    'stop_all_ao_monitors',  # 停止所有监控
 ]
